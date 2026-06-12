@@ -51,8 +51,11 @@
   .tool-body{flex:1;display:flex;flex-direction:column;align-items:center;padding:48px 24px 64px}
   .note{background:#f4f1ff;border:1px solid #ded5ff;color:#5b48b8;font-size:13px;border-radius:10px;padding:10px 16px;margin-bottom:28px;max-width:680px}
 
-  .dropzone{display:flex;flex-direction:column;align-items:center;gap:14px;padding:48px 80px;border:2px dashed transparent;border-radius:16px;cursor:pointer;transition:.15s}
-  .dropzone.drag{border-color:var(--accent);background:#faf8ff}
+  .dropzone{display:flex;flex-direction:column;align-items:center;gap:14px;padding:48px 24px;border:2px dashed #ddd6f7;border-radius:16px;cursor:pointer;transition:.15s;width:100%;max-width:680px}
+  .dropzone:hover{border-color:var(--accent);background:#faf8ff}
+  #dropOverlay{position:fixed;inset:0;background:rgba(141,117,240,.14);z-index:999;display:none;align-items:center;justify-content:center;pointer-events:none}
+  #dropOverlay.show{display:flex}
+  #dropOverlay .inner{border:3px dashed var(--accent);border-radius:24px;background:rgba(255,255,255,.93);padding:56px 80px;font-size:22px;font-weight:700;color:var(--accent)}
   .btn-primary{background:var(--accent);color:#fff;border:none;font-size:15px;font-weight:600;padding:16px 48px;border-radius:6px;cursor:pointer}
   .btn-primary:hover{background:var(--accent-dark)}
   .btn-primary:disabled{background:#c9c2e8;cursor:not-allowed}
@@ -1271,7 +1274,7 @@ function renderTool(t){
       <div class="dropzone" id="drop">
         <button class="btn-primary" type="button">ファイルを選択</button>
         <div class="dz-or">または</div>
-        <div class="dz-hint">ファイルをここにドロップ</div>
+        <div class="dz-hint">ファイルをここにドロップ (ページのどこに落としても OK)</div>
       </div>
       <input type="file" id="fileInput" hidden ${t.multiple ? "multiple" : ""} accept="${esc(t.accept || "*/*")}">
       <ul class="filelist" id="fileList"></ul>
@@ -1342,9 +1345,7 @@ function renderTool(t){
 
   drop.onclick = () => input.click();
   input.onchange = () => { addFiles(input.files); input.value = ""; };
-  drop.ondragover = e => { e.preventDefault(); drop.classList.add("drag"); };
-  drop.ondragleave = () => drop.classList.remove("drag");
-  drop.ondrop = e => { e.preventDefault(); drop.classList.remove("drag"); addFiles(e.dataTransfer.files); };
+  currentDrop = addFiles;   // ページ全体へのドロップを受け付ける
 
   let running = false;
   const ui = {
@@ -1374,9 +1375,38 @@ function renderTool(t){
   };
 }
 
+/* ── ページ全体ドラッグ&ドロップ ── */
+let currentDrop = null;
+const dropOverlay = document.createElement("div");
+dropOverlay.id = "dropOverlay";
+dropOverlay.innerHTML = '<div class="inner">📂 ファイルをここにドロップ</div>';
+document.body.appendChild(dropOverlay);
+let dragDepth = 0;
+const hasFiles = e => e.dataTransfer && [...e.dataTransfer.types].includes("Files");
+document.addEventListener("dragenter", e => {
+  if(!currentDrop || !hasFiles(e)) return;
+  e.preventDefault();
+  dragDepth++;
+  dropOverlay.classList.add("show");
+});
+document.addEventListener("dragover", e => {
+  if(currentDrop && hasFiles(e)) e.preventDefault();
+});
+document.addEventListener("dragleave", () => {
+  if(--dragDepth <= 0){ dragDepth = 0; dropOverlay.classList.remove("show"); }
+});
+document.addEventListener("drop", e => {
+  if(!currentDrop) return;
+  e.preventDefault();
+  dragDepth = 0;
+  dropOverlay.classList.remove("show");
+  if(e.dataTransfer.files.length) currentDrop(e.dataTransfer.files);
+});
+
 /* ═══════════════ router ═══════════════ */
 function route(){
   stopStream();
+  currentDrop = null;
   window.scrollTo(0, 0);
   const hash = location.hash.replace(/^#\/?/, "");
   if(!hash){ renderHome(); document.title = "ToolBox — 無料オンラインファイルツール"; return; }
