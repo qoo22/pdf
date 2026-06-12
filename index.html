@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ToolBox — 無料オンラインファイルツール</title>
+<style>
+  :root{
+    --accent:#8d75f0;
+    --accent-dark:#7a61e8;
+    --header-bg:#15151d;
+    --panel-bg:#1d1d27;
+    --text:#2b2b33;
+    --muted:#8a8a95;
+    --border:#e6e6ee;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Segoe UI","Hiragino Sans","Yu Gothic UI",Meiryo,sans-serif;color:var(--text);background:#fff;min-height:100vh;display:flex;flex-direction:column}
+
+  /* ───────── header ───────── */
+  header{background:var(--header-bg);color:#ddd;display:flex;align-items:center;gap:8px;padding:0 24px;height:56px;position:sticky;top:0;z-index:100}
+  .brand{color:#fff;text-decoration:none;font-weight:700;font-size:18px;margin-right:24px;display:flex;align-items:center;gap:8px}
+  .brand .logo{background:var(--accent);border-radius:8px;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;font-size:16px}
+  nav{display:flex;height:100%}
+  .menu{position:relative;height:100%;display:flex;align-items:center}
+  .menu>button{background:none;border:none;color:#ccc;font-size:14px;padding:0 16px;height:100%;cursor:pointer;display:flex;align-items:center;gap:6px}
+  .menu>button:hover,.menu:hover>button{color:#fff;background:#22222e}
+  .dropdown{display:none;position:absolute;top:100%;left:0;background:var(--panel-bg);border:1px solid #2c2c3a;border-radius:10px;padding:10px;min-width:230px;box-shadow:0 12px 30px rgba(0,0,0,.45)}
+  .menu:hover .dropdown{display:block}
+  .dropdown.cols2{min-width:480px;column-count:2;column-gap:6px}
+  .dropdown a{display:flex;align-items:center;gap:10px;color:#cfcfda;text-decoration:none;font-size:13.5px;padding:9px 12px;border-radius:8px;break-inside:avoid}
+  .dropdown a:hover{background:#2a2a38;color:#fff}
+  .dropdown a .ico{width:18px;text-align:center;opacity:.85}
+  .dropdown a .soon{margin-left:auto;font-size:10px;color:#7d7d8c;border:1px solid #3a3a4a;border-radius:99px;padding:1px 7px}
+  .dropdown .sub{position:relative}
+  .dropdown .subhead{display:flex;align-items:center;gap:10px;color:#cfcfda;font-size:13.5px;padding:9px 12px;border-radius:8px;cursor:default}
+  .dropdown .sub:hover>.subhead{background:#2a2a38;color:#fff}
+  .dropdown .subhead .arrow{margin-left:auto;color:#7d7d8c}
+  .dropdown .flyout{display:none;position:absolute;left:100%;top:-10px;background:var(--panel-bg);border:1px solid #2c2c3a;border-radius:10px;padding:10px;min-width:210px;box-shadow:0 12px 30px rgba(0,0,0,.45)}
+  .dropdown .sub:hover .flyout{display:block}
+  @media (max-width:900px){
+    .dropdown .flyout{position:static;border:none;box-shadow:none;padding:0 0 0 20px;min-width:0}
+  }
+
+  main{flex:1;display:flex;flex-direction:column}
+
+  /* ───────── tool page ───────── */
+  .tool-head{background:#f7f7fa;border-bottom:1px solid var(--border);padding:28px 40px}
+  .tool-head h1{font-size:26px;font-weight:600}
+  .tool-head p{color:var(--muted);font-size:14px;margin-top:8px}
+  .tool-body{flex:1;display:flex;flex-direction:column;align-items:center;padding:48px 24px 64px}
+  .note{background:#f4f1ff;border:1px solid #ded5ff;color:#5b48b8;font-size:13px;border-radius:10px;padding:10px 16px;margin-bottom:28px;max-width:680px}
+
+  .dropzone{display:flex;flex-direction:column;align-items:center;gap:14px;padding:48px 80px;border:2px dashed transparent;border-radius:16px;cursor:pointer;transition:.15s}
+  .dropzone.drag{border-color:var(--accent);background:#faf8ff}
+  .btn-primary{background:var(--accent);color:#fff;border:none;font-size:15px;font-weight:600;padding:16px 48px;border-radius:6px;cursor:pointer}
+  .btn-primary:hover{background:var(--accent-dark)}
+  .btn-primary:disabled{background:#c9c2e8;cursor:not-allowed}
+  .dz-or{color:#b9b9c2;font-size:12px;display:flex;align-items:center;gap:12px}
+  .dz-or::before,.dz-or::after{content:"";width:60px;height:1px;background:#e3e3ea}
+  .dz-hint{color:#b9b9c2;font-size:14px}
+
+  .filelist{list-style:none;width:100%;max-width:620px;margin-top:8px}
+  .filelist li{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:8px;font-size:14px;background:#fff}
+  .filelist .fname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .filelist .fsize{color:var(--muted);font-size:12px}
+  .filelist button{background:#f1f1f6;border:none;border-radius:6px;width:28px;height:28px;cursor:pointer;color:#555;font-size:13px}
+  .filelist button:hover{background:#e4e4ee}
+
+  .opts{display:grid;grid-template-columns:auto auto;gap:12px 16px;align-items:center;margin-top:24px;font-size:14px}
+  .opts label{color:#555;text-align:right}
+  .opts input,.opts select{border:1px solid #d4d4de;border-radius:8px;padding:8px 12px;font-size:14px;min-width:200px;background:#fff}
+
+  .runbar{margin-top:28px;display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;max-width:620px}
+  .status{color:var(--muted);font-size:13px;text-align:center;white-space:pre-line}
+  progress{width:100%;max-width:420px;height:8px;accent-color:var(--accent)}
+  .error{background:#fdf0f0;border:1px solid #f3c9c9;color:#b04444;border-radius:10px;padding:12px 18px;font-size:13px;max-width:620px;white-space:pre-wrap}
+
+  .results{width:100%;max-width:620px;margin-top:10px}
+  .results .res{display:flex;align-items:center;gap:12px;border:1px solid #d9f0e1;background:#f3fbf6;border-radius:10px;padding:12px 16px;margin-bottom:10px;font-size:14px}
+  .results .res .fname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .results a.dl{background:#27ae60;color:#fff;text-decoration:none;font-size:13px;font-weight:600;padding:8px 18px;border-radius:6px;white-space:nowrap}
+  .results a.dl:hover{background:#219252}
+  .results audio,.results img,.results video{max-width:100%;margin-top:8px;border-radius:8px}
+
+  /* ───────── home ───────── */
+  .hero{background:linear-gradient(135deg,#1a1a26 0%,#272038 100%);color:#fff;text-align:center;padding:72px 24px}
+  .hero h1{font-size:34px;font-weight:700}
+  .hero p{color:#b8b3cc;margin-top:14px;font-size:15px}
+  .home-cats{max-width:1100px;margin:0 auto;padding:48px 24px;width:100%}
+  .home-cats h2{font-size:19px;margin:36px 0 16px;display:flex;align-items:center;gap:10px}
+  .home-cats h2:first-child{margin-top:0}
+  .cardgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+  .card{border:1px solid var(--border);border-radius:12px;padding:16px;text-decoration:none;color:var(--text);display:flex;flex-direction:column;gap:6px;transition:.12s;background:#fff;position:relative}
+  .card:hover{border-color:var(--accent);box-shadow:0 4px 16px rgba(141,117,240,.12)}
+  .card .t{font-weight:600;font-size:14.5px;display:flex;align-items:center;gap:8px}
+  .card .d{color:var(--muted);font-size:12.5px;line-height:1.5}
+  .card .soon{position:absolute;top:12px;right:12px;font-size:10px;color:#9a93b5;border:1px solid #ddd8ee;border-radius:99px;padding:2px 8px}
+
+  /* recorder / tts */
+  .recbox{display:flex;flex-direction:column;align-items:center;gap:18px;margin-top:8px}
+  .recbox video{max-width:560px;width:100%;border-radius:12px;background:#000}
+  .btn-danger{background:#e05656;color:#fff;border:none;font-size:15px;font-weight:600;padding:16px 48px;border-radius:6px;cursor:pointer}
+  .btn-danger:hover{background:#c94747}
+  .ttsbox{width:100%;max-width:620px;display:flex;flex-direction:column;gap:14px}
+  .ttsbox textarea{border:1px solid #d4d4de;border-radius:10px;padding:14px;font-size:14px;min-height:140px;font-family:inherit;resize:vertical}
+  .ttsrow{display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:13px;color:#555}
+
+  footer{background:#f7f7fa;border-top:1px solid var(--border);text-align:center;color:var(--muted);font-size:12.5px;padding:22px}
+  .filewarn{background:#fff7e0;border-bottom:1px solid #f0dfa8;color:#8a6d1a;font-size:13px;padding:10px 24px;text-align:center;line-height:1.7}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="brand" href="#/"><span class="logo">🧰</span>ToolBox</a>
+  <nav id="nav"></nav>
+</header>
+
+<main id="app"></main>
+
+<footer>🔒 すべての処理はお使いのブラウザ内で完結します。ファイルがサーバーに送信されることはありません。</footer>
+
+<script src="vendor/pdf-lib.min.js"></script>
+<script src="vendor/jszip.min.js"></script>
+<script src="vendor/pdf.min.js"></script>
+<script>
+"use strict";
+pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";
+
+/* ═══════════════ helpers ═══════════════ */
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmtSize = n => n < 1024 ? n + " B" : n < 1048576 ? (n/1024).toFixed(1) + " KB" : (n/1048576).toFixed(2) + " MB";
+const baseName = n => n.replace(/\.[^.]+$/, "");
+const extOf = n => { const m = /\.([a-z0-9]+)$/i.exec(n); return m ? m[1].toLowerCase() : ""; };
+
+function loadScript(src){
+  return new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = src; s.onload = res;
+    s.onerror = () => rej(new Error("ライブラリの読み込みに失敗しました: " + src));
+    document.head.appendChild(s);
+  });
+}
+
+async function zipFiles(items){
+  const z = new JSZip();
+  for(const it of items) z.file(it.name, it.blob);
+  return await z.generateAsync({type:"blob"});
+}
+
+function mimeOf(name){
+  const map = {pdf:"application/pdf",png:"image/png",jpg:"image/jpeg",jpeg:"image/jpeg",webp:"image/webp",gif:"image/gif",
+    mp4:"video/mp4",webm:"video/webm",mov:"video/quicktime",avi:"video/x-msvideo",mkv:"video/x-matroska",
+    mp3:"audio/mpeg",wav:"audio/wav",ogg:"audio/ogg",flac:"audio/flac",m4a:"audio/mp4",zip:"application/zip",txt:"text/plain"};
+  return map[extOf(name)] || "application/octet-stream";
+}
+
+function parseRanges(s, max){
+  const out = new Set();
+  for(const part of String(s).split(",")){
+    const t = part.trim(); if(!t) continue;
+    const m = /^(\d+)(?:\s*-\s*(\d+))?$/.exec(t);
+    if(!m) throw new Error("ページ範囲の形式が正しくありません: " + t);
+    const a = +m[1], b = m[2] ? +m[2] : a;
+    if(a < 1 || b > max || a > b) throw new Error(`ページ範囲が不正です (1〜${max} の間で指定してください): ${t}`);
+    for(let i = a; i <= b; i++) out.add(i - 1);
+  }
+  if(!out.size) throw new Error("ページ範囲を入力してください (例: 1-3,5)");
+  return [...out].sort((x, y) => x - y);
+}
+
+/* ── lazy-loaded conversion libraries ── */
+const LIBS = {
+  mammoth:  {src:"vendor/mammoth.min.js",          check:() => window.mammoth},
+  xlsx:     {src:"vendor/xlsx.full.min.js",        check:() => window.XLSX},
+  html2pdf: {src:"vendor/html2pdf.bundle.min.js",  check:() => window.html2pdf},
+  pptxgen:  {src:"vendor/pptxgen.bundle.js",       check:() => window.PptxGenJS},
+};
+async function lib(name){
+  const l = LIBS[name];
+  if(!l.check()) await loadScript(l.src);
+  return l.check();
+}
+
+const escXml = s => String(s).replace(/[&<>"']/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&apos;"}[c]));
+
+/* PDF からページごとのテキスト行を抽出 (列の区切りはタブ) */
+async function extractPdfText(file, ui){
+  const doc = await pdfjsLib.getDocument({data: await file.arrayBuffer()}).promise;
+  const pages = [];
+  for(let p = 1; p <= doc.numPages; p++){
+    if(ui) ui.status(`テキストを抽出中 (${p}/${doc.numPages})…`);
+    const tc = await (await doc.getPage(p)).getTextContent();
+    const lines = new Map();
+    for(const it of tc.items){
+      if(!it.str || !it.str.trim()) continue;
+      const y = Math.round(it.transform[5]);
+      let key = null;
+      for(const k of lines.keys()) if(Math.abs(k - y) <= 3){ key = k; break; }
+      if(key === null){ key = y; lines.set(key, []); }
+      lines.get(key).push({x: it.transform[4], w: it.width || 0, str: it.str});
+    }
+    const sorted = [...lines.entries()].sort((a, b) => b[0] - a[0]).map(([, items]) => {
+      items.sort((a, b) => a.x - b.x);
+      let line = "", prevEnd = null;
+      for(const it of items){
+        if(prevEnd !== null && it.x - prevEnd > 15) line += "\t";
+        line += it.str;
+        prevEnd = it.x + it.w;
+      }
+      return line;
+    });
+    pages.push(sorted);
+  }
+  if(pages.every(ls => ls.length === 0))
+    throw new Error("この PDF からテキストを抽出できませんでした。スキャン画像の PDF の可能性があります。");
+  return pages;
+}
+
+/* テキスト行から最小構成の .docx を生成 */
+async function buildDocx(pages){
+  const z = new JSZip();
+  z.file("[Content_Types].xml",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
+    `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
+    `<Default Extension="xml" ContentType="application/xml"/>` +
+    `<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>` +
+    `</Types>`);
+  z.file("_rels/.rels",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+    `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>` +
+    `</Relationships>`);
+  const body = pages.map((lines, pi) =>
+    lines.map(l => `<w:p><w:r><w:t xml:space="preserve">${escXml(l.replace(/\t/g, "    "))}</w:t></w:r></w:p>`).join("") +
+    (pi < pages.length - 1 ? `<w:p><w:r><w:br w:type="page"/></w:r></w:p>` : "")
+  ).join("");
+  z.file("word/document.xml",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">` +
+    `<w:body>${body || "<w:p/>"}</w:body></w:document>`);
+  return await z.generateAsync({type:"blob",
+    mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
+}
+
+/* HTML 文字列を A4 PDF に変換 (html2pdf.js) */
+async function htmlToPdfBlob(html, ui){
+  await lib("html2pdf");
+  if(ui) ui.status("PDF を生成中…");
+  /* html2canvas は通常フロー内の要素しか描画できないため、
+     サイズ 0 のラッパーで隠した上で文書フロー内に配置する */
+  const outer = document.createElement("div");
+  outer.style.cssText = "position:absolute;left:0;top:0;width:0;height:0;overflow:hidden";
+  const host = document.createElement("div");
+  host.style.cssText = "width:794px;background:#fff;color:#000;" +
+    "font-family:'Yu Gothic','Hiragino Sans',sans-serif;font-size:13px;line-height:1.7;padding:24px";
+  host.innerHTML = `<style>table{border-collapse:collapse}td,th{border:1px solid #999;padding:4px 8px;font-size:11px}</style>` + html;
+  outer.appendChild(host);
+  document.body.appendChild(outer);
+  try{
+    const blob = await html2pdf().set({
+      margin:[10,10,10,10],
+      html2canvas:{scale:2, useCORS:true, scrollX:0, scrollY:0},
+      jsPDF:{unit:"mm", format:"a4", orientation:"portrait"},
+      pagebreak:{mode:["css","legacy"]},
+    }).from(host).toPdf().outputPdf("blob");
+    if(!blob || !blob.size) throw new Error("PDF の生成に失敗しました。");
+    return blob;
+  } finally { outer.remove(); }
+}
+
+/* PDF の各ページを画像に変換 */
+async function pdfToImages(file, format, scale, ui){
+  const doc = await pdfjsLib.getDocument({data: await file.arrayBuffer()}).promise;
+  const mime = format === "jpeg" ? "image/jpeg" : "image/png";
+  const ext = format === "jpeg" ? "jpg" : "png";
+  const items = [];
+  for(let p = 1; p <= doc.numPages; p++){
+    if(ui) ui.status(`ページ ${p}/${doc.numPages} を変換中…`);
+    const page = await doc.getPage(p);
+    const vp = page.getViewport({scale});
+    const canvas = document.createElement("canvas");
+    canvas.width = vp.width; canvas.height = vp.height;
+    const ctx = canvas.getContext("2d");
+    if(format === "jpeg"){ ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+    await page.render({canvasContext: ctx, viewport: vp}).promise;
+    const blob = await new Promise(r => canvas.toBlob(r, mime, 0.92));
+    items.push({name:`${baseName(file.name)}_p${p}.${ext}`, blob});
+  }
+  return items;
+}
+
+/* 画像群を 1 つの PDF にまとめる */
+async function imagesToPdf(files, ui){
+  const doc = await PDFLib.PDFDocument.create();
+  for(let i = 0; i < files.length; i++){
+    if(ui) ui.status(`画像 ${i+1}/${files.length} を追加中…`);
+    const f = files[i];
+    let img;
+    if(f.type === "image/jpeg") img = await doc.embedJpg(await f.arrayBuffer());
+    else if(f.type === "image/png") img = await doc.embedPng(await f.arrayBuffer());
+    else {
+      const bmp = await createImageBitmap(f);
+      const c = document.createElement("canvas");
+      c.width = bmp.width; c.height = bmp.height;
+      c.getContext("2d").drawImage(bmp, 0, 0);
+      const blob = await new Promise(r => c.toBlob(r, "image/png"));
+      img = await doc.embedPng(await blob.arrayBuffer());
+    }
+    const w = img.width * 0.75, h = img.height * 0.75;
+    doc.addPage([w, h]).drawImage(img, {x:0, y:0, width:w, height:h});
+  }
+  return new Blob([await doc.save()], {type:"application/pdf"});
+}
+
+/* ── audio helpers ── */
+let _actx = null;
+const actx = () => _actx || (_actx = new (window.AudioContext || window.webkitAudioContext)());
+async function decodeAudio(file){
+  try{ return await actx().decodeAudioData(await file.arrayBuffer()); }
+  catch(e){ throw new Error(`「${file.name}」を音声として読み込めませんでした。対応形式か確認してください。`); }
+}
+function makeBuffer(channels, length, rate){
+  return actx().createBuffer(channels, Math.max(1, length), rate);
+}
+function bufferToWav(buf){
+  const nCh = buf.numberOfChannels, rate = buf.sampleRate, len = buf.length;
+  const bytes = 44 + len * nCh * 2;
+  const ab = new ArrayBuffer(bytes), v = new DataView(ab);
+  const wstr = (o, s) => { for(let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  wstr(0,"RIFF"); v.setUint32(4, bytes - 8, true); wstr(8,"WAVE"); wstr(12,"fmt ");
+  v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,nCh,true);
+  v.setUint32(24,rate,true); v.setUint32(28,rate*nCh*2,true); v.setUint16(32,nCh*2,true); v.setUint16(34,16,true);
+  wstr(36,"data"); v.setUint32(40, len*nCh*2, true);
+  const chans = []; for(let c = 0; c < nCh; c++) chans.push(buf.getChannelData(c));
+  let o = 44;
+  for(let i = 0; i < len; i++) for(let c = 0; c < nCh; c++){
+    let s = Math.max(-1, Math.min(1, chans[c][i]));
+    v.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7FFF, true); o += 2;
+  }
+  return new Blob([ab], {type:"audio/wav"});
+}
+async function renderOffline(buf, build, lengthOverride){
+  const ctx = new OfflineAudioContext(buf.numberOfChannels, lengthOverride || buf.length, buf.sampleRate);
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  build(ctx, src);
+  src.start();
+  return await ctx.startRendering();
+}
+
+/* ── ffmpeg (lazy) ── */
+let _ff = null;
+async function getFFmpeg(ui){
+  if(_ff) return _ff;
+  if(location.protocol === "file:")
+    throw new Error("このツールは index.html を直接開いた状態 (file://) では動作しません。" +
+      "「サイトを起動.bat」から起動するか、Web 公開版の URL からご利用ください。");
+  ui.status("FFmpeg エンジンを読み込み中…\n(初回のみ約 30MB の読み込みが発生します。しばらくお待ちください)");
+  await loadScript("vendor/ffmpeg.js");
+  const ff = new FFmpegWASM.FFmpeg();
+  await ff.load({
+    coreURL: new URL("vendor/ffmpeg-core.js", location.href).href,
+    wasmURL: new URL("vendor/ffmpeg-core.wasm", location.href).href,
+  });
+  _ff = ff;
+  return ff;
+}
+async function runFF(ui, inputs, args, outName, extraFiles){
+  const ff = await getFFmpeg(ui);
+  const onProg = p => ui.progress(Math.min(1, Math.max(0, p.progress || 0)));
+  ff.on("progress", onProg);
+  const written = [];
+  try{
+    for(const [name, file] of inputs){
+      ui.status("ファイルを準備中…");
+      await ff.writeFile(name, new Uint8Array(await file.arrayBuffer()));
+      written.push(name);
+    }
+    for(const [name, data] of (extraFiles || [])){
+      await ff.writeFile(name, data); written.push(name);
+    }
+    ui.status("変換処理を実行中…(ファイルの長さによっては数分かかります)");
+    const code = await ff.exec(args);
+    let data;
+    try{ data = await ff.readFile(outName); }
+    catch(e){ throw new Error("変換に失敗しました (FFmpeg 終了コード: " + code + ")。別の形式・設定でお試しください。"); }
+    if(!data || !data.length) throw new Error("変換結果が空でした。別の形式・設定でお試しください。");
+    return new Blob([data.buffer], {type: mimeOf(outName)});
+  } finally {
+    ff.off("progress", onProg);
+    for(const n of written){ try{ await ff.deleteFile(n); }catch(e){} }
+    try{ await ff.deleteFile(outName); }catch(e){}
+  }
+}
+const ffIn = files => files.map((f, i) => [`in${i}.${extOf(f.name) || "dat"}`, f]);
+
+/* ═══════════════ tool definitions ═══════════════ */
+const X264 = ["-c:v","libx264","-preset","veryfast","-pix_fmt","yuv420p","-c:a","aac"];
+
+const TOOLS = {
+
+/* ──────────── PDF ──────────── */
+"pdf-merge":{
+  cat:"pdf", ico:"🗂", name:"PDF 結合", action:"結合",
+  desc:"複数の PDF ファイルを単一ファイルに高速かつ簡単に結合します。",
+  accept:"application/pdf,.pdf", multiple:true, minFiles:2, sortable:true,
+  hint:"2 つ以上の PDF を選択してください。↑↓ ボタンで結合順を変更できます。",
+  async run(files, o, ui){
+    const out = await PDFLib.PDFDocument.create();
+    for(let i = 0; i < files.length; i++){
+      ui.status(`結合中 (${i+1}/${files.length})…`);
+      const src = await PDFLib.PDFDocument.load(await files[i].arrayBuffer(), {ignoreEncryption:true});
+      const pages = await out.copyPages(src, src.getPageIndices());
+      pages.forEach(p => out.addPage(p));
+    }
+    return [{name:"結合済み.pdf", blob:new Blob([await out.save()], {type:"application/pdf"})}];
+  }},
+
+"pdf-split":{
+  cat:"pdf", ico:"📑", name:"PDF 分割", action:"分割",
+  desc:"PDF から指定したページを抽出、またはすべてのページを個別ファイルに分割します。",
+  accept:"application/pdf,.pdf",
+  options:[
+    {key:"mode", label:"分割方法", type:"select", def:"range",
+     choices:[["range","指定ページを抽出"],["each","全ページを個別ファイルに分割 (ZIP)"]]},
+    {key:"ranges", label:"ページ範囲", type:"text", def:"", placeholder:"例: 1-3,5"},
+  ],
+  async run(files, o, ui){
+    const file = files[0];
+    const src = await PDFLib.PDFDocument.load(await file.arrayBuffer(), {ignoreEncryption:true});
+    const n = src.getPageCount();
+    if(o.mode === "each"){
+      const items = [];
+      for(let i = 0; i < n; i++){
+        ui.status(`ページ ${i+1}/${n} を書き出し中…`);
+        const d = await PDFLib.PDFDocument.create();
+        const [p] = await d.copyPages(src, [i]);
+        d.addPage(p);
+        items.push({name:`${baseName(file.name)}_p${i+1}.pdf`, blob:new Blob([await d.save()], {type:"application/pdf"})});
+      }
+      return [{name:`${baseName(file.name)}_分割.zip`, blob:await zipFiles(items)}];
+    }
+    const idxs = parseRanges(o.ranges, n);
+    const d = await PDFLib.PDFDocument.create();
+    const pages = await d.copyPages(src, idxs);
+    pages.forEach(p => d.addPage(p));
+    return [{name:`${baseName(file.name)}_抽出.pdf`, blob:new Blob([await d.save()], {type:"application/pdf"})}];
+  }},
+
+"pdf-compress":{
+  cat:"pdf", ico:"🗜", name:"PDF 圧縮", action:"圧縮",
+  desc:"PDF を再構築してファイルサイズを最適化します(画質は劣化しません)。",
+  accept:"application/pdf,.pdf",
+  async run(files, o, ui){
+    const file = files[0];
+    ui.status("最適化しています…");
+    const src = await PDFLib.PDFDocument.load(await file.arrayBuffer(), {ignoreEncryption:true, updateMetadata:false});
+    const bytes = await src.save({useObjectStreams:true});
+    ui.status(`元のサイズ: ${fmtSize(file.size)} → 圧縮後: ${fmtSize(bytes.length)}` +
+      (bytes.length >= file.size ? "\n(この PDF はすでに十分最適化されています)" : ""));
+    return [{name:`${baseName(file.name)}_圧縮済み.pdf`, blob:new Blob([bytes], {type:"application/pdf"})}];
+  }},
+
+"pdf-rotate":{
+  cat:"pdf", ico:"🔄", name:"PDF 回転", action:"回転",
+  desc:"PDF のすべてのページを指定した角度で回転します。",
+  accept:"application/pdf,.pdf",
+  options:[{key:"angle", label:"回転角度", type:"select", def:"90",
+    choices:[["90","右に 90°"],["180","180°"],["270","左に 90°"]]}],
+  async run(files, o, ui){
+    const file = files[0];
+    const src = await PDFLib.PDFDocument.load(await file.arrayBuffer(), {ignoreEncryption:true});
+    const a = +o.angle;
+    src.getPages().forEach(p => p.setRotation(PDFLib.degrees((p.getRotation().angle + a) % 360)));
+    return [{name:`${baseName(file.name)}_回転.pdf`, blob:new Blob([await src.save()], {type:"application/pdf"})}];
+  }},
+
+"pdf-pagenum":{
+  cat:"pdf", ico:"#️⃣", name:"ページ番号追加", action:"追加",
+  desc:"PDF の各ページにページ番号を追加します。",
+  accept:"application/pdf,.pdf",
+  options:[
+    {key:"pos", label:"位置", type:"select", def:"bc",
+     choices:[["bc","下部中央"],["br","右下"],["bl","左下"],["tc","上部中央"]]},
+    {key:"fmt", label:"形式", type:"select", def:"n_of_m", choices:[["n_of_m","1 / 10"],["n","1"]]},
+  ],
+  async run(files, o, ui){
+    const file = files[0];
+    const doc = await PDFLib.PDFDocument.load(await file.arrayBuffer(), {ignoreEncryption:true});
+    const font = await doc.embedFont(PDFLib.StandardFonts.Helvetica);
+    const pages = doc.getPages(), n = pages.length, size = 11;
+    pages.forEach((p, i) => {
+      const text = o.fmt === "n" ? String(i + 1) : `${i + 1} / ${n}`;
+      const w = font.widthOfTextAtSize(text, size);
+      const {width, height} = p.getSize();
+      let x = (width - w) / 2, y = 24;
+      if(o.pos === "br") x = width - w - 40;
+      if(o.pos === "bl") x = 40;
+      if(o.pos === "tc") y = height - 32;
+      p.drawText(text, {x, y, size, font, color:PDFLib.rgb(0.25,0.25,0.25)});
+    });
+    return [{name:`${baseName(file.name)}_ページ番号.pdf`, blob:new Blob([await doc.save()], {type:"application/pdf"})}];
+  }},
+
+/* ── PDF から変換 ── */
+"pdf-to-word":{
+  cat:"pdf", ico:"📝", name:"PDF から Word へ", action:"変換",
+  desc:"PDF のテキストを抽出して Word 文書 (.docx) に変換します。レイアウト・画像は変換されません。",
+  accept:"application/pdf,.pdf",
+  async run(files, o, ui){
+    const pages = await extractPdfText(files[0], ui);
+    ui.status("Word 文書を作成中…");
+    return [{name:`${baseName(files[0].name)}.docx`, blob:await buildDocx(pages)}];
+  }},
+
+"pdf-to-excel":{
+  cat:"pdf", ico:"📊", name:"PDF to Excel", action:"変換",
+  desc:"PDF のテキストを抽出して Excel ブック (.xlsx) に変換します。ページごとにシートを作成します。",
+  accept:"application/pdf,.pdf",
+  async run(files, o, ui){
+    const pages = await extractPdfText(files[0], ui);
+    await lib("xlsx");
+    ui.status("Excel ファイルを作成中…");
+    const wb = XLSX.utils.book_new();
+    pages.forEach((lines, i) => {
+      const aoa = lines.map(l => l.split("\t"));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa.length ? aoa : [[""]]), "Page" + (i + 1));
+    });
+    const out = XLSX.write(wb, {type:"array", bookType:"xlsx"});
+    return [{name:`${baseName(files[0].name)}.xlsx`,
+      blob:new Blob([out], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})}];
+  }},
+
+"pdf-to-ppt":{
+  cat:"pdf", ico:"📽", name:"PDF to PPT", action:"変換",
+  desc:"PDF の各ページを画像としてスライドに配置した PowerPoint (.pptx) を作成します。",
+  accept:"application/pdf,.pdf",
+  async run(files, o, ui){
+    await lib("pptxgen");
+    const doc = await pdfjsLib.getDocument({data: await files[0].arrayBuffer()}).promise;
+    const pptx = new PptxGenJS();
+    let layoutSet = false;
+    for(let p = 1; p <= doc.numPages; p++){
+      ui.status(`ページ ${p}/${doc.numPages} を変換中…`);
+      const page = await doc.getPage(p);
+      const vp = page.getViewport({scale:2});
+      const c = document.createElement("canvas");
+      c.width = vp.width; c.height = vp.height;
+      await page.render({canvasContext: c.getContext("2d"), viewport: vp}).promise;
+      if(!layoutSet){
+        pptx.defineLayout({name:"PDF", width:10, height:Math.round(10 * vp.height / vp.width * 100) / 100});
+        pptx.layout = "PDF"; layoutSet = true;
+      }
+      pptx.addSlide().addImage({data:c.toDataURL("image/png"), x:0, y:0, w:"100%", h:"100%"});
+    }
+    ui.status("PowerPoint ファイルを作成中…");
+    const blob = await pptx.write("blob");
+    return [{name:`${baseName(files[0].name)}.pptx`, blob}];
+  }},
+
+"pdf-to-jpg":{
+  cat:"pdf", ico:"🖼", name:"PDF to JPG", action:"変換",
+  desc:"PDF の各ページを JPG 画像に変換します。複数ページは ZIP でまとめてダウンロードできます。",
+  accept:"application/pdf,.pdf",
+  options:[{key:"scale", label:"解像度", type:"select", def:"2",
+    choices:[["1","標準"],["2","高 (2x)"],["3","最高 (3x)"]]}],
+  async run(files, o, ui){
+    const items = await pdfToImages(files[0], "jpeg", +o.scale, ui);
+    if(items.length === 1) return items;
+    return [{name:`${baseName(files[0].name)}_JPG.zip`, blob:await zipFiles(items)}];
+  }},
+
+"pdf-to-png":{
+  cat:"pdf", ico:"🖼", name:"PDF to PNG", action:"変換",
+  desc:"PDF の各ページを PNG 画像に変換します。複数ページは ZIP でまとめてダウンロードできます。",
+  accept:"application/pdf,.pdf",
+  options:[{key:"scale", label:"解像度", type:"select", def:"2",
+    choices:[["1","標準"],["2","高 (2x)"],["3","最高 (3x)"]]}],
+  async run(files, o, ui){
+    const items = await pdfToImages(files[0], "png", +o.scale, ui);
+    if(items.length === 1) return items;
+    return [{name:`${baseName(files[0].name)}_PNG.zip`, blob:await zipFiles(items)}];
+  }},
+
+"pdf-to-html":{
+  cat:"pdf", ico:"🌐", name:"PDF to HTML", action:"変換",
+  desc:"PDF のテキストを抽出して HTML ファイルに変換します。",
+  accept:"application/pdf,.pdf",
+  async run(files, o, ui){
+    const pages = await extractPdfText(files[0], ui);
+    const title = baseName(files[0].name);
+    const body = pages.map((lines, i) =>
+      `<section><h2>ページ ${i + 1}</h2>${lines.map(l => `<p>${esc(l.replace(/\t/g, "  "))}</p>`).join("")}</section>`).join("\n");
+    const html = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>${esc(title)}</title>` +
+      `<style>body{font-family:sans-serif;max-width:800px;margin:40px auto;padding:0 16px;line-height:1.8}` +
+      `section{border-bottom:1px solid #ddd;padding-bottom:24px;margin-bottom:24px}h2{color:#666;font-size:14px}</style>` +
+      `</head><body><h1>${esc(title)}</h1>${body}</body></html>`;
+    return [{name:`${title}.html`, blob:new Blob([html], {type:"text/html"})}];
+  }},
+
+/* ── PDF に変換 ── */
+"word-to-pdf":{
+  cat:"pdf", ico:"📝", name:"Word を PDF に", action:"変換",
+  desc:"Word 文書 (.docx) を PDF に変換します。",
+  accept:".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  async run(files, o, ui){
+    await lib("mammoth");
+    ui.status("Word 文書を読み込み中…");
+    const res = await mammoth.convertToHtml({arrayBuffer: await files[0].arrayBuffer()});
+    if(!res.value || !res.value.trim())
+      throw new Error("この Word 文書から内容を読み取れませんでした。.docx 形式か確認してください。");
+    const blob = await htmlToPdfBlob(res.value, ui);
+    return [{name:`${baseName(files[0].name)}.pdf`, blob}];
+  }},
+
+"excel-to-pdf":{
+  cat:"pdf", ico:"📊", name:"Excel to PDF", action:"変換",
+  desc:"Excel ブック (.xlsx / .xls / .csv) を PDF に変換します。",
+  accept:".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv",
+  async run(files, o, ui){
+    await lib("xlsx");
+    ui.status("Excel ファイルを読み込み中…");
+    const wb = XLSX.read(await files[0].arrayBuffer(), {type:"array"});
+    const html = wb.SheetNames.map(n =>
+      `<h3>${esc(n)}</h3>` + XLSX.utils.sheet_to_html(wb.Sheets[n], {header:"", footer:""})
+    ).join(`<div style="page-break-after:always"></div>`);
+    const blob = await htmlToPdfBlob(html, ui);
+    return [{name:`${baseName(files[0].name)}.pdf`, blob}];
+  }},
+
+"jpg-to-pdf":{
+  cat:"pdf", ico:"🖼", name:"JPG to PDF", action:"変換",
+  desc:"JPG 画像を 1 つの PDF にまとめます。",
+  accept:"image/jpeg,.jpg,.jpeg", multiple:true, sortable:true,
+  hint:"複数の画像を選択すると、選択順に 1 ページずつ PDF に追加されます。",
+  async run(files, o, ui){
+    return [{name:"画像.pdf", blob:await imagesToPdf(files, ui)}];
+  }},
+
+"png-to-pdf":{
+  cat:"pdf", ico:"🖼", name:"PNG to PDF", action:"変換",
+  desc:"PNG 画像を 1 つの PDF にまとめます。",
+  accept:"image/png,.png", multiple:true, sortable:true,
+  hint:"複数の画像を選択すると、選択順に 1 ページずつ PDF に追加されます。",
+  async run(files, o, ui){
+    return [{name:"画像.pdf", blob:await imagesToPdf(files, ui)}];
+  }},
+
+"ppt-to-pdf":{cat:"pdf", ico:"📽", name:"PPT to PDF", type:"coming",
+  desc:"PowerPoint (.pptx) を PDF に変換します。"},
+
+"pdf-protect":{cat:"pdf", ico:"🛡", name:"PDF 保護", type:"coming",
+  desc:"PDF にパスワードを設定して保護します。"},
+"pdf-unprotect":{cat:"pdf", ico:"🔓", name:"保護を解除", type:"coming",
+  desc:"PDF のパスワード保護を解除します。"},
+
+/* ──────────── オーディオ ──────────── */
+"audio-trim":{
+  cat:"audio", ico:"✂️", name:"オーディオのトリム", action:"トリム",
+  desc:"音声ファイルの必要な部分だけを切り出します。出力は WAV 形式です。",
+  accept:"audio/*",
+  options:[
+    {key:"start", label:"開始位置 (秒)", type:"number", def:0, min:0, step:0.1},
+    {key:"end", label:"終了位置 (秒, 0=最後まで)", type:"number", def:0, min:0, step:0.1},
+  ],
+  async run(files, o, ui){
+    const buf = await decodeAudio(files[0]);
+    const s = Math.floor((+o.start) * buf.sampleRate);
+    let e = (+o.end) > 0 ? Math.floor((+o.end) * buf.sampleRate) : buf.length;
+    e = Math.min(e, buf.length);
+    if(s >= e) throw new Error("開始位置は終了位置より前にしてください。");
+    const out = makeBuffer(buf.numberOfChannels, e - s, buf.sampleRate);
+    for(let c = 0; c < buf.numberOfChannels; c++)
+      out.copyToChannel(buf.getChannelData(c).slice(s, e), c);
+    return [{name:`${baseName(files[0].name)}_トリム.wav`, blob:bufferToWav(out)}];
+  }},
+
+"audio-volume":{
+  cat:"audio", ico:"🔊", name:"音量を変更", action:"変更",
+  desc:"音声ファイルの音量を上げたり下げたりします。出力は WAV 形式です。",
+  accept:"audio/*",
+  options:[{key:"gain", label:"音量 (%)", type:"number", def:150, min:1, max:500}],
+  async run(files, o, ui){
+    const buf = await decodeAudio(files[0]);
+    const g = (+o.gain) / 100;
+    const out = makeBuffer(buf.numberOfChannels, buf.length, buf.sampleRate);
+    for(let c = 0; c < buf.numberOfChannels; c++){
+      const src = buf.getChannelData(c), dst = out.getChannelData(c);
+      for(let i = 0; i < src.length; i++) dst[i] = Math.max(-1, Math.min(1, src[i] * g));
+    }
+    return [{name:`${baseName(files[0].name)}_音量${o.gain}%.wav`, blob:bufferToWav(out)}];
+  }},
+
+"audio-speed":{
+  cat:"audio", ico:"⏩", name:"速度変更", action:"変更",
+  desc:"音声の再生速度を変更します(ピッチも変化します)。出力は WAV 形式です。",
+  accept:"audio/*",
+  options:[{key:"rate", label:"速度 (倍)", type:"number", def:1.5, min:0.25, max:4, step:0.05}],
+  async run(files, o, ui){
+    const buf = await decodeAudio(files[0]);
+    const r = +o.rate;
+    const out = await renderOffline(buf, (ctx, src) => {
+      src.playbackRate.value = r;
+      src.connect(ctx.destination);
+    }, Math.ceil(buf.length / r));
+    return [{name:`${baseName(files[0].name)}_${r}x.wav`, blob:bufferToWav(out)}];
+  }},
+
+"audio-eq":{
+  cat:"audio", ico:"🎚", name:"イコライザー", action:"適用",
+  desc:"低音・中音・高音のバランスを調整します。出力は WAV 形式です。",
+  accept:"audio/*",
+  options:[
+    {key:"low", label:"低音 (dB)", type:"number", def:0, min:-15, max:15},
+    {key:"mid", label:"中音 (dB)", type:"number", def:0, min:-15, max:15},
+    {key:"high", label:"高音 (dB)", type:"number", def:0, min:-15, max:15},
+  ],
+  async run(files, o, ui){
+    const buf = await decodeAudio(files[0]);
+    const out = await renderOffline(buf, (ctx, src) => {
+      const lo = ctx.createBiquadFilter(); lo.type = "lowshelf"; lo.frequency.value = 250; lo.gain.value = +o.low;
+      const mi = ctx.createBiquadFilter(); mi.type = "peaking"; mi.frequency.value = 1000; mi.Q.value = 1; mi.gain.value = +o.mid;
+      const hi = ctx.createBiquadFilter(); hi.type = "highshelf"; hi.frequency.value = 4000; hi.gain.value = +o.high;
+      src.connect(lo); lo.connect(mi); mi.connect(hi); hi.connect(ctx.destination);
+    });
+    return [{name:`${baseName(files[0].name)}_EQ.wav`, blob:bufferToWav(out)}];
+  }},
+
+"audio-reverse":{
+  cat:"audio", ico:"↩️", name:"逆再生", action:"反転",
+  desc:"音声を逆向きに再生するファイルを作成します。出力は WAV 形式です。",
+  accept:"audio/*",
+  async run(files, o, ui){
+    const buf = await decodeAudio(files[0]);
+    const out = makeBuffer(buf.numberOfChannels, buf.length, buf.sampleRate);
+    for(let c = 0; c < buf.numberOfChannels; c++){
+      const d = Float32Array.from(buf.getChannelData(c)); d.reverse();
+      out.copyToChannel(d, c);
+    }
+    return [{name:`${baseName(files[0].name)}_逆再生.wav`, blob:bufferToWav(out)}];
+  }},
+
+"audio-merge":{
+  cat:"audio", ico:"🪢", name:"オーディオをマージ", action:"マージ",
+  desc:"複数の音声ファイルを 1 つに連結します。出力は WAV 形式です。",
+  accept:"audio/*", multiple:true, minFiles:2, sortable:true,
+  async run(files, o, ui){
+    const bufs = [];
+    for(let i = 0; i < files.length; i++){
+      ui.status(`読み込み中 (${i+1}/${files.length})…`);
+      bufs.push(await decodeAudio(files[i]));
+    }
+    const rate = bufs[0].sampleRate;
+    const nCh = Math.max(...bufs.map(b => b.numberOfChannels));
+    const total = bufs.reduce((s, b) => s + b.length, 0);
+    const out = makeBuffer(nCh, total, rate);
+    let off = 0;
+    for(const b of bufs){
+      for(let c = 0; c < nCh; c++)
+        out.copyToChannel(b.getChannelData(Math.min(c, b.numberOfChannels - 1)), c, off);
+      off += b.length;
+    }
+    return [{name:"マージ済み.wav", blob:bufferToWav(out)}];
+  }},
+
+"voice-recorder":{cat:"audio", ico:"🎙", name:"ボイスレコーダー", type:"recorder", kind:"mic",
+  desc:"マイクから音声を録音してファイルとして保存します。"},
+"audio-pitch":{cat:"audio", ico:"🎵", name:"ピッチ変更", type:"coming",
+  desc:"速度を変えずに音の高さだけを変更します。"},
+
+/* ──────────── ビデオ ──────────── */
+"video-trim":{
+  cat:"video", ico:"✂️", name:"トリムビデオ", action:"トリム",
+  desc:"動画の必要な部分だけを切り出します(再エンコードなしの高速処理)。",
+  accept:"video/*",
+  options:[
+    {key:"start", label:"開始位置 (秒)", type:"number", def:0, min:0, step:0.1},
+    {key:"end", label:"終了位置 (秒)", type:"number", def:10, min:0.1, step:0.1},
+  ],
+  async run(files, o, ui){
+    if(+o.end <= +o.start) throw new Error("終了位置は開始位置より後にしてください。");
+    const [[name, f]] = ffIn(files);
+    const out = "out." + extOf(name);
+    const blob = await runFF(ui, [[name, f]],
+      ["-i", name, "-ss", String(o.start), "-to", String(o.end), "-c", "copy", out], out);
+    return [{name:`${baseName(f.name)}_トリム.${extOf(name)}`, blob}];
+  }},
+
+"video-crop":{
+  cat:"video", ico:"🖽", name:"動画をトリミング", action:"トリミング",
+  desc:"動画の画面の一部を切り抜きます(クロップ)。出力は MP4 です。",
+  accept:"video/*",
+  options:[
+    {key:"w", label:"幅 (px)", type:"number", def:640, min:16},
+    {key:"h", label:"高さ (px)", type:"number", def:480, min:16},
+    {key:"x", label:"左からの位置 (px)", type:"number", def:0, min:0},
+    {key:"y", label:"上からの位置 (px)", type:"number", def:0, min:0},
+  ],
+  async run(files, o, ui){
+    const [[name, f]] = ffIn(files);
+    const blob = await runFF(ui, [[name, f]],
+      ["-i", name, "-vf", `crop=${+o.w}:${+o.h}:${+o.x}:${+o.y}`, ...X264, "out.mp4"], "out.mp4");
+    return [{name:`${baseName(f.name)}_クロップ.mp4`, blob}];
+  }},
+
+"video-rotate":{
+  cat:"video", ico:"🔄", name:"動画を回転", action:"回転",
+  desc:"動画を 90°/180°/270° 回転します。出力は MP4 です。",
+  accept:"video/*",
+  options:[{key:"angle", label:"回転角度", type:"select", def:"90",
+    choices:[["90","右に 90°"],["180","180°"],["270","左に 90°"]]}],
+  async run(files, o, ui){
+    const vf = {90:"transpose=1", 180:"transpose=1,transpose=1", 270:"transpose=2"}[o.angle];
+    const [[name, f]] = ffIn(files);
+    const blob = await runFF(ui, [[name, f]], ["-i", name, "-vf", vf, ...X264, "out.mp4"], "out.mp4");
+    return [{name:`${baseName(f.name)}_回転.mp4`, blob}];
+  }},
+
+"video-flip":{
+  cat:"video", ico:"🪞", name:"ビデオを反転", action:"反転",
+  desc:"動画を左右または上下に反転します。出力は MP4 です。",
+  accept:"video/*",
+  options:[{key:"dir", label:"反転方向", type:"select", def:"hflip",
+    choices:[["hflip","左右反転"],["vflip","上下反転"]]}],
+  async run(files, o, ui){
+    const [[name, f]] = ffIn(files);
+    const blob = await runFF(ui, [[name, f]], ["-i", name, "-vf", o.dir, ...X264, "out.mp4"], "out.mp4");
+    return [{name:`${baseName(f.name)}_反転.mp4`, blob}];
+  }},
+
+"video-resize":{
+  cat:"video", ico:"📐", name:"動画のサイズ変更", action:"変更",
+  desc:"動画の解像度(幅)を変更します。高さは自動計算されます。出力は MP4 です。",
+  accept:"video/*",
+  options:[{key:"w", label:"幅 (px)", type:"select", def:"1280",
+    choices:[["1920","1920 (フル HD)"],["1280","1280 (HD)"],["854","854 (SD)"],["640","640"],["480","480"],["320","320"]]}],
+  async run(files, o, ui){
+    const [[name, f]] = ffIn(files);
+    const blob = await runFF(ui, [[name, f]], ["-i", name, "-vf", `scale=${+o.w}:-2`, ...X264, "out.mp4"], "out.mp4");
+    return [{name:`${baseName(f.name)}_${o.w}px.mp4`, blob}];
+  }},
+
+"video-volume":{
+  cat:"video", ico:"🔊", name:"動画の音量を変更", action:"変更",
+  desc:"動画の音量を上げたり下げたりします。出力は MP4 です。",
+  accept:"video/*",
+  options:[{key:"gain", label:"音量 (%)", type:"number", def:150, min:0, max:500}],
+  async run(files, o, ui){
+    const [[name, f]] = ffIn(files);
+    const blob = await runFF(ui, [[name, f]],
+      ["-i", name, "-af", `volume=${(+o.gain)/100}`, ...X264, "out.mp4"], "out.mp4");
+    return [{name:`${baseName(f.name)}_音量${o.gain}%.mp4`, blob}];
+  }},
+
+"video-speed":{
+  cat:"video", ico:"⏩", name:"ビデオ速度の変更", action:"変更",
+  desc:"動画の再生速度を変更します (0.5〜2 倍)。出力は MP4 です。",
+  accept:"video/*",
+  options:[{key:"rate", label:"速度 (倍)", type:"select", def:"2",
+    choices:[["0.5","0.5x (スロー)"],["0.75","0.75x"],["1.25","1.25x"],["1.5","1.5x"],["2","2x (倍速)"]]}],
+  async run(files, o, ui){
+    const r = +o.rate;
+    const [[name, f]] = ffIn(files);
+    const blob = await runFF(ui, [[name, f]],
+      ["-i", name, "-vf", `setpts=PTS/${r}`, "-af", `atempo=${r}`, ...X264, "out.mp4"], "out.mp4");
+    return [{name:`${baseName(f.name)}_${r}x.mp4`, blob}];
+  }},
+
+"video-loop":{
+  cat:"video", ico:"🔁", name:"ループ動画", action:"作成",
+  desc:"動画を指定回数くり返すファイルを作成します(再エンコードなし)。",
+  accept:"video/*",
+  options:[{key:"count", label:"くり返し回数", type:"number", def:2, min:1, max:20}],
+  async run(files, o, ui){
+    const [[name, f]] = ffIn(files);
+    const out = "out." + extOf(name);
+    const blob = await runFF(ui, [[name, f]],
+      ["-stream_loop", String(+o.count), "-i", name, "-c", "copy", out], out);
+    return [{name:`${baseName(f.name)}_ループ.${extOf(name)}`, blob}];
+  }},
+
+"video-merge":{
+  cat:"video", ico:"🪢", name:"動画を結合", action:"結合",
+  desc:"複数の動画を 1 つに連結します。同じ形式・解像度の動画を推奨します(再エンコードなし)。",
+  accept:"video/*", multiple:true, minFiles:2, sortable:true,
+  async run(files, o, ui){
+    const inputs = ffIn(files);
+    const list = inputs.map(([n]) => `file '${n}'`).join("\n");
+    const out = "out." + extOf(inputs[0][0]);
+    const blob = await runFF(ui, inputs,
+      ["-f", "concat", "-safe", "0", "-i", "list.txt", "-c", "copy", out], out,
+      [["list.txt", new TextEncoder().encode(list)]]);
+    return [{name:`結合済み.${extOf(inputs[0][0])}`, blob}];
+  }},
+
+"video-mute":{
+  cat:"video", ico:"🔇", name:"動画をミュート", action:"ミュート",
+  desc:"動画から音声トラックを削除します(再エンコードなしの高速処理)。",
+  accept:"video/*",
+  async run(files, o, ui){
+    const [[name, f]] = ffIn(files);
+    const out = "out." + extOf(name);
+    const blob = await runFF(ui, [[name, f]], ["-i", name, "-c", "copy", "-an", out], out);
+    return [{name:`${baseName(f.name)}_ミュート.${extOf(name)}`, blob}];
+  }},
+
+"video-add-audio":{
+  cat:"video", ico:"🎵", name:"動画に音声を追加", action:"追加",
+  desc:"動画に音声(BGM・ナレーションなど)を追加します。動画 1 つと音声 1 つを選択してください。",
+  accept:"video/*,audio/*", multiple:true, minFiles:2,
+  hint:"動画ファイル 1 つと音声ファイル 1 つを選択してください。元の音声は置き換えられます。",
+  async run(files, o, ui){
+    const v = files.find(f => f.type.startsWith("video"));
+    const a = files.find(f => f.type.startsWith("audio"));
+    if(!v || !a) throw new Error("動画ファイル 1 つと音声ファイル 1 つを選択してください。");
+    const vn = "v." + (extOf(v.name) || "mp4"), an = "a." + (extOf(a.name) || "mp3");
+    const blob = await runFF(ui, [[vn, v], [an, a]],
+      ["-i", vn, "-i", an, "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-shortest", "out.mp4"],
+      "out.mp4");
+    return [{name:`${baseName(v.name)}_音声追加.mp4`, blob}];
+  }},
+
+"screen-record":{cat:"video", ico:"🖥", name:"画面録画", type:"recorder", kind:"screen",
+  desc:"画面(ウィンドウ・タブ)を録画してファイルとして保存します。"},
+"video-record":{cat:"video", ico:"📹", name:"動画レコーダー", type:"recorder", kind:"camera",
+  desc:"Web カメラで動画を撮影してファイルとして保存します。"},
+"tts":{cat:"video", ico:"🗣", name:"音声合成", type:"tts",
+  desc:"入力したテキストを音声で読み上げます。"},
+"video-edit":{cat:"video", ico:"🎬", name:"動画編集", type:"hub",
+  desc:"トリム・回転・反転・サイズ変更などの動画編集ツール一覧。"},
+"video-add-image":{cat:"video", ico:"🖼", name:"動画に画像を追加", type:"coming",
+  desc:"動画に画像(ウォーターマークなど)を重ねます。"},
+"video-add-text":{cat:"video", ico:"🔤", name:"動画にテキストを追加", type:"coming",
+  desc:"動画にテキストを重ねます。"},
+"video-remove-logo":{cat:"video", ico:"🚫", name:"動画からロゴを削除", type:"coming",
+  desc:"動画内のロゴやウォーターマークをぼかします。"},
+"video-stabilize":{cat:"video", ico:"🎯", name:"動画を安定させる", type:"coming",
+  desc:"手ブレを補正して動画を安定させます。"},
+
+/* ──────────── コンバーター ──────────── */
+"audio-convert":{
+  cat:"conv", ico:"🎵", name:"オーディオコンバータ", action:"変換",
+  desc:"音声ファイルを MP3 / WAV / FLAC / OGG に変換します。",
+  accept:"audio/*,video/*",
+  options:[{key:"format", label:"出力形式", type:"select", def:"mp3",
+    choices:[["mp3","MP3"],["wav","WAV"],["flac","FLAC"],["ogg","OGG"]]}],
+  async run(files, o, ui){
+    const [[name, f]] = ffIn(files);
+    const out = "out." + o.format;
+    const codec = {mp3:["-c:a","libmp3lame","-q:a","2"], wav:["-c:a","pcm_s16le"],
+                   flac:["-c:a","flac"], ogg:["-c:a","libvorbis"]}[o.format];
+    const blob = await runFF(ui, [[name, f]], ["-i", name, "-vn", ...codec, out], out);
+    return [{name:`${baseName(f.name)}.${o.format}`, blob}];
+  }},
+
+"video-convert":{
+  cat:"conv", ico:"🎞", name:"ビデオコンバーター", action:"変換",
+  desc:"動画ファイルを MP4 / WebM / GIF などに変換します。",
+  accept:"video/*",
+  options:[{key:"format", label:"出力形式", type:"select", def:"mp4",
+    choices:[["mp4","MP4"],["webm","WebM"],["gif","GIF (アニメ)"],["mp3","MP3 (音声のみ抽出)"],["wav","WAV (音声のみ抽出)"]]}],
+  async run(files, o, ui){
+    const [[name, f]] = ffIn(files);
+    const out = "out." + o.format;
+    let args;
+    if(o.format === "mp4") args = ["-i", name, ...X264, out];
+    else if(o.format === "webm") args = ["-i", name, "-c:v", "libvpx", "-b:v", "1M", "-c:a", "libvorbis", out];
+    else if(o.format === "gif") args = ["-i", name, "-vf", "fps=10,scale=480:-1:flags=lanczos", out];
+    else if(o.format === "mp3") args = ["-i", name, "-vn", "-c:a", "libmp3lame", "-q:a", "2", out];
+    else args = ["-i", name, "-vn", "-c:a", "pcm_s16le", out];
+    const blob = await runFF(ui, [[name, f]], args, out);
+    return [{name:`${baseName(f.name)}.${o.format}`, blob}];
+  }},
+
+"image-convert":{
+  cat:"conv", ico:"🖼", name:"画像コンバーター", action:"変換",
+  desc:"画像を PNG / JPEG / WebP に変換します。複数ファイルの一括変換に対応。",
+  accept:"image/*", multiple:true,
+  options:[
+    {key:"format", label:"出力形式", type:"select", def:"png",
+     choices:[["png","PNG"],["jpeg","JPEG"],["webp","WebP"]]},
+    {key:"quality", label:"品質 (%)", type:"number", def:92, min:10, max:100},
+  ],
+  async run(files, o, ui){
+    const ext = o.format === "jpeg" ? "jpg" : o.format;
+    const results = [];
+    for(let i = 0; i < files.length; i++){
+      ui.status(`変換中 (${i+1}/${files.length})…`);
+      const f = files[i];
+      let bmp;
+      try{ bmp = await createImageBitmap(f); }
+      catch(e){ throw new Error(`「${f.name}」を画像として読み込めませんでした。`); }
+      const c = document.createElement("canvas");
+      c.width = bmp.width; c.height = bmp.height;
+      const ctx = c.getContext("2d");
+      if(o.format === "jpeg"){ ctx.fillStyle = "#fff"; ctx.fillRect(0,0,c.width,c.height); }
+      ctx.drawImage(bmp, 0, 0);
+      const blob = await new Promise(r => c.toBlob(r, "image/" + o.format, (+o.quality)/100));
+      results.push({name:`${baseName(f.name)}.${ext}`, blob});
+    }
+    return results;
+  }},
+
+"archive-zip":{
+  cat:"conv", ico:"🗜", name:"アーカイブ変換 (ZIP 作成)", action:"ZIP 作成",
+  desc:"複数のファイルを 1 つの ZIP アーカイブにまとめます。",
+  accept:"*/*", multiple:true,
+  async run(files, o, ui){
+    ui.status("圧縮中…");
+    const z = new JSZip();
+    for(const f of files) z.file(f.name, f);
+    const blob = await z.generateAsync({type:"blob", compression:"DEFLATE"});
+    return [{name:"アーカイブ.zip", blob}];
+  }},
+
+"archive-unzip":{
+  cat:"conv", ico:"📦", name:"アーカイブ解凍ツール", action:"解凍",
+  desc:"ZIP アーカイブの中身を取り出します。",
+  accept:".zip,application/zip,application/x-zip-compressed",
+  async run(files, o, ui){
+    ui.status("解凍中…");
+    const z = await JSZip.loadAsync(await files[0].arrayBuffer());
+    const results = [];
+    for(const [path, entry] of Object.entries(z.files)){
+      if(entry.dir) continue;
+      const blob = await entry.async("blob");
+      results.push({name: path.split("/").pop() || path, blob});
+    }
+    if(!results.length) throw new Error("この ZIP にはファイルが含まれていません。");
+    return results;
+  }},
+
+"doc-convert":{cat:"conv", ico:"📃", name:"文書コンバーター", type:"coming",
+  desc:"Word / テキストなどの文書を相互変換します。"},
+"font-convert":{cat:"conv", ico:"🔤", name:"フォントコンバーター", type:"coming",
+  desc:"TTF / OTF / WOFF などのフォント形式を変換します。"},
+"ebook-convert":{cat:"conv", ico:"📚", name:"電子書籍コンバーター", type:"coming",
+  desc:"EPUB / MOBI などの電子書籍形式を変換します。"},
+};
+
+const CATEGORIES = [
+  {id:"video", name:"ビデオ", ico:"▶", tools:[
+    "video-edit","screen-record","tts","video-merge","video-trim","video-add-audio",
+    "video-add-image","video-add-text","video-remove-logo","video-crop","video-rotate",
+    "video-flip","video-resize","video-loop","video-volume","video-speed","video-mute",
+    "video-stabilize","video-record"]},
+  {id:"audio", name:"オーディオ", ico:"♪", tools:[
+    "audio-trim","audio-volume","audio-speed","audio-pitch","audio-eq","audio-reverse",
+    "voice-recorder","audio-merge"]},
+  {id:"pdf", name:"PDF", ico:"📄", tools:[
+    {group:"PDFから変換", ico:"⬇", tools:["pdf-to-word","pdf-to-excel","pdf-to-ppt","pdf-to-jpg","pdf-to-png","pdf-to-html"]},
+    {group:"PDFに変換", ico:"⬆", tools:["word-to-pdf","jpg-to-pdf","excel-to-pdf","ppt-to-pdf","png-to-pdf"]},
+    "pdf-split","pdf-merge","pdf-compress",
+    "pdf-unprotect","pdf-protect","pdf-rotate","pdf-pagenum"]},
+  {id:"conv", name:"コンバーター", ico:"⇄", tools:[
+    "audio-convert","video-convert","image-convert","doc-convert","font-convert",
+    "archive-zip","ebook-convert","archive-unzip"]},
+];
+
+/* ═══════════════ rendering ═══════════════ */
+const app = $("#app");
+let activeStream = null;
+
+function navLink(id){
+  const t = TOOLS[id];
+  return `<a href="#/${id}"><span class="ico">${t.ico}</span>${esc(t.name)}${t.type === "coming" ? '<span class="soon">準備中</span>' : ""}</a>`;
+}
+function flattenTools(cat){
+  return cat.tools.flatMap(e => typeof e === "object" ? e.tools : [e]);
+}
+function buildNav(){
+  const nav = $("#nav");
+  nav.innerHTML = CATEGORIES.map(cat => `
+    <div class="menu">
+      <button>${cat.ico} ${cat.name} ▾</button>
+      <div class="dropdown ${cat.tools.length > 9 ? "cols2" : ""}">
+        ${cat.tools.map(e => {
+          if(typeof e === "object")
+            return `<div class="sub">
+              <div class="subhead"><span class="ico">${e.ico || "📄"}</span>${esc(e.group)}<span class="arrow">›</span></div>
+              <div class="flyout">${e.tools.map(navLink).join("")}</div>
+            </div>`;
+          return navLink(e);
+        }).join("")}
+      </div>
+    </div>`).join("");
+}
+
+function stopStream(){
+  if(activeStream){ activeStream.getTracks().forEach(t => t.stop()); activeStream = null; }
+  try{ window.speechSynthesis && speechSynthesis.cancel(); }catch(e){}
+}
+
+function renderHome(){
+  app.innerHTML = `
+    <div class="hero">
+      <h1>すべてのファイル作業を、ブラウザだけで。</h1>
+      <p>PDF の結合・分割、動画・音声の編集、形式変換 — インストール不要・無料・ファイルはサーバーに送信されません。</p>
+    </div>
+    <div class="home-cats">
+      ${CATEGORIES.map(cat => `
+        <h2>${cat.ico} ${cat.name}</h2>
+        <div class="cardgrid">
+          ${flattenTools(cat).map(id => {
+            const t = TOOLS[id];
+            return `<a class="card" href="#/${id}">
+              ${t.type === "coming" ? '<span class="soon">準備中</span>' : ""}
+              <span class="t">${t.ico} ${esc(t.name)}</span>
+              <span class="d">${esc(t.desc)}</span></a>`;
+          }).join("")}
+        </div>`).join("")}
+    </div>`;
+}
+
+function toolHead(t, extra){
+  return `<div class="tool-head"><h1>${esc(t.name)}</h1><p>${esc(t.desc)}${extra || ""}</p></div>`;
+}
+
+function renderComing(t){
+  app.innerHTML = toolHead(t) + `
+    <div class="tool-body">
+      <div class="note">🚧 このツールは現在準備中です。今後のアップデートで利用できるようになります。</div>
+      <a class="btn-primary" style="text-decoration:none" href="#/">他のツールを見る</a>
+    </div>`;
+}
+
+function renderHub(t){
+  const ids = ["video-trim","video-crop","video-rotate","video-flip","video-resize",
+               "video-volume","video-speed","video-loop","video-merge","video-mute","video-add-audio"];
+  app.innerHTML = toolHead(t) + `
+    <div class="tool-body">
+      <div class="cardgrid" style="max-width:900px;width:100%">
+        ${ids.map(id => { const x = TOOLS[id];
+          return `<a class="card" href="#/${id}"><span class="t">${x.ico} ${esc(x.name)}</span><span class="d">${esc(x.desc)}</span></a>`;
+        }).join("")}
+      </div>
+    </div>`;
+}
+
+function renderRecorder(t){
+  const isAudio = t.kind === "mic";
+  app.innerHTML = toolHead(t) + `
+    <div class="tool-body">
+      <div class="note">⏺ 「開始」を押すと${isAudio ? "マイク" : t.kind === "screen" ? "画面共有" : "カメラ"}の許可を求められます。録画・録音データはこの端末から外に出ません。</div>
+      <div class="recbox">
+        ${!isAudio ? '<video id="preview" autoplay muted playsinline style="display:none"></video>' : ""}
+        <div style="display:flex;gap:12px">
+          <button id="recStart" class="btn-primary">${isAudio ? "🎙 録音開始" : "⏺ 録画開始"}</button>
+          <button id="recStop" class="btn-danger" style="display:none">⏹ 停止</button>
+        </div>
+        <div id="status" class="status"></div>
+        <div id="results" class="results"></div>
+      </div>
+    </div>`;
+  let rec = null, chunks = [], timer = null, t0 = 0;
+  const status = $("#status");
+  $("#recStart").onclick = async () => {
+    try{
+      stopStream();
+      if(t.kind === "mic") activeStream = await navigator.mediaDevices.getUserMedia({audio:true});
+      else if(t.kind === "screen") activeStream = await navigator.mediaDevices.getDisplayMedia({video:true, audio:true});
+      else activeStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+    }catch(e){ status.textContent = "デバイスへのアクセスが許可されませんでした。"; return; }
+    const pv = $("#preview");
+    if(pv){ pv.style.display = "block"; pv.srcObject = activeStream; }
+    chunks = [];
+    rec = new MediaRecorder(activeStream);
+    rec.ondataavailable = e => { if(e.data.size) chunks.push(e.data); };
+    rec.onstop = () => {
+      const mime = rec.mimeType || (isAudio ? "audio/webm" : "video/webm");
+      const blob = new Blob(chunks, {type: mime});
+      const ext = mime.includes("mp4") ? "mp4" : "webm";
+      showResults($("#results"), [{name:`${isAudio ? "録音" : "録画"}_${new Date().toISOString().slice(0,19).replace(/[:T]/g,"-")}.${ext}`, blob}]);
+      stopStream();
+      if(pv){ pv.srcObject = null; pv.style.display = "none"; }
+      $("#recStart").style.display = ""; $("#recStop").style.display = "none";
+      clearInterval(timer); status.textContent = "完了しました。下からダウンロードできます。";
+    };
+    activeStream.getVideoTracks().forEach(tr => tr.onended = () => { if(rec && rec.state !== "inactive") rec.stop(); });
+    rec.start();
+    t0 = Date.now();
+    timer = setInterval(() => { status.textContent = "録画中… " + Math.floor((Date.now()-t0)/1000) + " 秒"; }, 500);
+    $("#recStart").style.display = "none"; $("#recStop").style.display = "";
+  };
+  $("#recStop").onclick = () => { if(rec && rec.state !== "inactive") rec.stop(); };
+}
+
+function renderTTS(t){
+  app.innerHTML = toolHead(t, " ブラウザの音声合成機能を使用します。") + `
+    <div class="tool-body">
+      <div class="ttsbox">
+        <textarea id="ttsText" placeholder="読み上げたいテキストを入力してください…">こんにちは。これは音声合成のテストです。</textarea>
+        <div class="ttsrow">
+          <label>音声: <select id="ttsVoice"></select></label>
+          <label>速度: <input id="ttsRate" type="range" min="0.5" max="2" step="0.1" value="1"></label>
+          <label>高さ: <input id="ttsPitch" type="range" min="0.5" max="2" step="0.1" value="1"></label>
+        </div>
+        <div style="display:flex;gap:12px;justify-content:center">
+          <button id="ttsPlay" class="btn-primary">▶ 読み上げ</button>
+          <button id="ttsStop" class="btn-danger">⏹ 停止</button>
+        </div>
+        <div class="status" style="text-align:center">※ 音声のダウンロードには対応していません(ブラウザ標準機能の制限)。</div>
+      </div>
+    </div>`;
+  const sel = $("#ttsVoice");
+  function fillVoices(){
+    const vs = speechSynthesis.getVoices();
+    const sorted = [...vs.filter(v => v.lang.startsWith("ja")), ...vs.filter(v => !v.lang.startsWith("ja"))];
+    sel.innerHTML = sorted.map((v, i) => `<option value="${esc(v.name)}">${esc(v.name)} (${esc(v.lang)})</option>`).join("");
+  }
+  fillVoices();
+  speechSynthesis.onvoiceschanged = fillVoices;
+  $("#ttsPlay").onclick = () => {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance($("#ttsText").value);
+    const v = speechSynthesis.getVoices().find(v => v.name === sel.value);
+    if(v) u.voice = v;
+    u.rate = +$("#ttsRate").value; u.pitch = +$("#ttsPitch").value;
+    speechSynthesis.speak(u);
+  };
+  $("#ttsStop").onclick = () => speechSynthesis.cancel();
+}
+
+function showResults(container, items){
+  container.innerHTML = "";
+  for(const it of items){
+    const url = URL.createObjectURL(it.blob);
+    const div = document.createElement("div");
+    div.className = "res";
+    div.innerHTML = `<span class="fname">✅ ${esc(it.name)} <span style="color:var(--muted);font-size:12px">(${fmtSize(it.blob.size)})</span></span>
+      <a class="dl" href="${url}" download="${esc(it.name)}">ダウンロード</a>`;
+    container.appendChild(div);
+    const mt = it.blob.type;
+    if(mt.startsWith("audio")){ const a = document.createElement("audio"); a.controls = true; a.src = url; div.after(a); }
+    else if(mt.startsWith("video")){ const v = document.createElement("video"); v.controls = true; v.src = url; v.style.maxHeight = "320px"; div.after(v); }
+    else if(mt.startsWith("image")){ const im = document.createElement("img"); im.src = url; im.style.maxHeight = "260px"; div.after(im); }
+  }
+}
+
+function renderTool(t){
+  if(t.type === "coming") return renderComing(t);
+  if(t.type === "recorder") return renderRecorder(t);
+  if(t.type === "tts") return renderTTS(t);
+  if(t.type === "hub") return renderHub(t);
+
+  const minFiles = t.minFiles || 1;
+  app.innerHTML = toolHead(t) + `
+    <div class="tool-body">
+      ${t.hint ? `<div class="note">💡 ${esc(t.hint)}</div>` : ""}
+      <div class="dropzone" id="drop">
+        <button class="btn-primary" type="button">ファイルを選択</button>
+        <div class="dz-or">または</div>
+        <div class="dz-hint">ファイルをここにドロップ</div>
+      </div>
+      <input type="file" id="fileInput" hidden ${t.multiple ? "multiple" : ""} accept="${esc(t.accept || "*/*")}">
+      <ul class="filelist" id="fileList"></ul>
+      <div class="opts" id="opts"></div>
+      <div class="runbar">
+        <button class="btn-primary" id="runBtn" disabled>${esc(t.action || "実行")}</button>
+        <div class="status" id="status"></div>
+        <progress id="prog" max="1" value="0" style="display:none"></progress>
+        <div class="error" id="err" style="display:none"></div>
+        <div class="results" id="results"></div>
+      </div>
+    </div>`;
+
+  let files = [];
+  const drop = $("#drop"), input = $("#fileInput"), list = $("#fileList"),
+        runBtn = $("#runBtn"), status = $("#status"), prog = $("#prog"),
+        err = $("#err"), results = $("#results");
+
+  /* options form */
+  const optsEl = $("#opts");
+  if(t.options){
+    optsEl.innerHTML = t.options.map(op => {
+      let inp;
+      if(op.type === "select")
+        inp = `<select data-key="${op.key}">${op.choices.map(([v, l]) =>
+          `<option value="${esc(v)}" ${String(v) === String(op.def) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
+      else if(op.type === "number")
+        inp = `<input type="number" data-key="${op.key}" value="${op.def}" ${op.min != null ? `min="${op.min}"` : ""} ${op.max != null ? `max="${op.max}"` : ""} step="${op.step || 1}">`;
+      else
+        inp = `<input type="text" data-key="${op.key}" value="${esc(op.def || "")}" placeholder="${esc(op.placeholder || "")}">`;
+      return `<label>${esc(op.label)}</label>${inp}`;
+    }).join("");
+  }
+  const getOpts = () => {
+    const o = {};
+    optsEl.querySelectorAll("[data-key]").forEach(el => o[el.dataset.key] = el.value);
+    return o;
+  };
+
+  function addFiles(fl){
+    const arr = [...fl];
+    if(!arr.length) return;
+    files = t.multiple ? files.concat(arr) : [arr[arr.length - 1]];
+    renderList();
+  }
+  function renderList(){
+    list.innerHTML = "";
+    files.forEach((f, i) => {
+      const li = document.createElement("li");
+      li.innerHTML = `<span class="fname">📄 ${esc(f.name)}</span><span class="fsize">${fmtSize(f.size)}</span>`;
+      if(t.sortable){
+        const up = document.createElement("button"); up.textContent = "↑";
+        up.onclick = () => { if(i > 0){ [files[i-1], files[i]] = [files[i], files[i-1]]; renderList(); } };
+        const dn = document.createElement("button"); dn.textContent = "↓";
+        dn.onclick = () => { if(i < files.length - 1){ [files[i+1], files[i]] = [files[i], files[i+1]]; renderList(); } };
+        li.append(up, dn);
+      }
+      const rm = document.createElement("button"); rm.textContent = "✕";
+      rm.onclick = () => { files.splice(i, 1); renderList(); };
+      li.append(rm);
+      list.appendChild(li);
+    });
+    runBtn.disabled = files.length < minFiles;
+    if(files.length && files.length < minFiles)
+      status.textContent = `あと ${minFiles - files.length} 個のファイルを追加してください。`;
+    else if(!running) status.textContent = "";
+  }
+
+  drop.onclick = () => input.click();
+  input.onchange = () => { addFiles(input.files); input.value = ""; };
+  drop.ondragover = e => { e.preventDefault(); drop.classList.add("drag"); };
+  drop.ondragleave = () => drop.classList.remove("drag");
+  drop.ondrop = e => { e.preventDefault(); drop.classList.remove("drag"); addFiles(e.dataTransfer.files); };
+
+  let running = false;
+  const ui = {
+    status(m){ status.textContent = m; },
+    progress(r){ prog.style.display = ""; prog.value = r; },
+  };
+  runBtn.onclick = async () => {
+    if(running || files.length < minFiles) return;
+    running = true;
+    runBtn.disabled = true;
+    err.style.display = "none"; results.innerHTML = "";
+    prog.style.display = "none"; prog.value = 0;
+    try{
+      const out = await t.run(files, getOpts(), ui);
+      showResults(results, out);
+      if(!status.textContent.includes("サイズ")) status.textContent = "✅ 完了しました!";
+    }catch(e){
+      console.error(e);
+      err.textContent = "⚠ " + (e && e.message ? e.message : "処理に失敗しました。");
+      err.style.display = "";
+      status.textContent = "";
+    }finally{
+      prog.style.display = "none";
+      running = false;
+      runBtn.disabled = files.length < minFiles;
+    }
+  };
+}
+
+/* ═══════════════ router ═══════════════ */
+function route(){
+  stopStream();
+  window.scrollTo(0, 0);
+  const hash = location.hash.replace(/^#\/?/, "");
+  if(!hash){ renderHome(); document.title = "ToolBox — 無料オンラインファイルツール"; return; }
+  const t = TOOLS[hash];
+  if(!t){ renderHome(); return; }
+  document.title = t.name + " — ToolBox";
+  renderTool(t);
+}
+buildNav();
+if(location.protocol === "file:"){
+  const warn = document.createElement("div");
+  warn.className = "filewarn";
+  warn.innerHTML = "⚠ ファイルを直接開いているため、<b>動画編集・動画/音声の形式変換</b>は利用できません。" +
+    "すべての機能を使うには「サイトを起動.bat」から起動するか、Web 公開版の URL からアクセスしてください。";
+  document.body.insertBefore(warn, $("#app"));
+}
+window.addEventListener("hashchange", route);
+route();
+
+/* expose for tests */
+window.TOOLS = TOOLS;
+</script>
+</body>
+</html>
