@@ -24,9 +24,9 @@
   nav{display:flex;height:100%}
   .menu{position:relative;height:100%;display:flex;align-items:center}
   .menu>button{background:none;border:none;color:#ccc;font-size:14px;padding:0 16px;height:100%;cursor:pointer;display:flex;align-items:center;gap:6px}
-  .menu>button:hover,.menu:hover>button{color:#fff;background:#22222e}
+  .menu>button:hover,.menu:hover>button,.menu.open>button{color:#fff;background:#22222e}
   .dropdown{display:none;position:absolute;top:100%;left:0;background:var(--panel-bg);border:1px solid #2c2c3a;border-radius:10px;padding:10px;min-width:230px;box-shadow:0 12px 30px rgba(0,0,0,.45)}
-  .menu:hover .dropdown{display:block}
+  .menu:hover .dropdown,.menu.open .dropdown{display:block}
   .dropdown.cols2{min-width:480px;column-count:2;column-gap:6px}
   .dropdown a{display:flex;align-items:center;gap:10px;color:#cfcfda;text-decoration:none;font-size:13.5px;padding:9px 12px;border-radius:8px;break-inside:avoid}
   .dropdown a:hover{background:#2a2a38;color:#fff}
@@ -37,7 +37,7 @@
   .dropdown .sub:hover>.subhead{background:#2a2a38;color:#fff}
   .dropdown .subhead .arrow{margin-left:auto;color:#7d7d8c}
   .dropdown .flyout{display:none;position:absolute;left:100%;top:-10px;background:var(--panel-bg);border:1px solid #2c2c3a;border-radius:10px;padding:10px;min-width:210px;box-shadow:0 12px 30px rgba(0,0,0,.45)}
-  .dropdown .sub:hover .flyout{display:block}
+  .dropdown .sub:hover .flyout,.dropdown .sub.open .flyout{display:block}
   @media (max-width:900px){
     .dropdown .flyout{position:static;border:none;box-shadow:none;padding:0 0 0 20px;min-width:0}
   }
@@ -126,7 +126,7 @@
 <script src="vendor/pdf.min.js"></script>
 <script>
 "use strict";
-pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";
+if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";
 
 /* ═══════════════ helpers ═══════════════ */
 const $ = s => document.querySelector(s);
@@ -1088,6 +1088,23 @@ function buildNav(){
         }).join("")}
       </div>
     </div>`).join("");
+  /* ホバーに加えてクリック・タップでも開閉できるようにする */
+  nav.querySelectorAll(".menu").forEach(m => {
+    m.querySelector("button").addEventListener("click", e => {
+      e.stopPropagation();
+      const wasOpen = m.classList.contains("open");
+      nav.querySelectorAll(".open").forEach(x => x.classList.remove("open"));
+      if(!wasOpen) m.classList.add("open");
+    });
+  });
+  nav.querySelectorAll(".subhead").forEach(s => {
+    s.addEventListener("click", e => {
+      e.stopPropagation();
+      s.parentElement.classList.toggle("open");
+    });
+  });
+  document.addEventListener("click", () =>
+    nav.querySelectorAll(".open").forEach(x => x.classList.remove("open")));
 }
 
 function stopStream(){
@@ -1369,6 +1386,15 @@ function route(){
   renderTool(t);
 }
 buildNav();
+if(!window.PDFLib || !window.pdfjsLib || !window.JSZip){
+  const warn = document.createElement("div");
+  warn.className = "filewarn";
+  warn.style.cssText = "background:#fdecec;color:#a33333;border-bottom-color:#f0baba";
+  warn.innerHTML = "⚠ <b>ライブラリ (vendor フォルダ) が読み込めませんでした。</b>" +
+    "ZIP の中から index.html を直接開いていませんか? ZIP ファイルを右クリック →「すべて展開」で展開してから、" +
+    "展開後のフォルダ内の「サイトを起動.bat」(または index.html) を開いてください。";
+  document.body.insertBefore(warn, $("#app"));
+}
 if(location.protocol === "file:"){
   const warn = document.createElement("div");
   warn.className = "filewarn";
