@@ -609,8 +609,11 @@ const TOOLS = {
 "word-to-pdf":{
   cat:"pdf", ico:"📝", name:"Word を PDF に", action:"変換",
   desc:"Word 文書 (.docx) を PDF に変換します。",
-  accept:".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  accept:".docx,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   async run(files, o, ui){
+    if(/\.doc$/i.test(files[0].name))
+      throw new Error("古い .doc 形式 (Word 97-2003) には対応していません。" +
+        "Word でファイルを開き、「名前を付けて保存」で .docx 形式にしてから再度お試しください。");
     await lib("mammoth");
     ui.status("Word 文書を読み込み中…");
     const res = await mammoth.convertToHtml({arrayBuffer: await files[0].arrayBuffer()});
@@ -1037,8 +1040,9 @@ const TOOLS = {
     return results;
   }},
 
-"doc-convert":{cat:"conv", ico:"📃", name:"文書コンバーター", type:"coming",
-  desc:"Word / テキストなどの文書を相互変換します。"},
+"doc-convert":{cat:"conv", ico:"📃", name:"文書コンバーター", type:"hub",
+  desc:"Word・Excel・PDF・HTML の相互変換ツール一覧。",
+  hubIds:["word-to-pdf","excel-to-pdf","pdf-to-word","pdf-to-excel","pdf-to-html","pdf-to-ppt"]},
 "font-convert":{cat:"conv", ico:"🔤", name:"フォントコンバーター", type:"coming",
   desc:"TTF / OTF / WOFF などのフォント形式を変換します。"},
 "ebook-convert":{cat:"conv", ico:"📚", name:"電子書籍コンバーター", type:"coming",
@@ -1149,7 +1153,7 @@ function renderComing(t){
 }
 
 function renderHub(t){
-  const ids = ["video-trim","video-crop","video-rotate","video-flip","video-resize",
+  const ids = t.hubIds || ["video-trim","video-crop","video-rotate","video-flip","video-resize",
                "video-volume","video-speed","video-loop","video-merge","video-mute","video-add-audio"];
   app.innerHTML = toolHead(t) + `
     <div class="tool-body">
