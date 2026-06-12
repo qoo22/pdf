@@ -1050,7 +1050,9 @@ const TOOLS = {
 };
 
 const CATEGORIES = [
-  {id:"pdf", name:"PDF", ico:"📄", tools:[
+  {id:"pdf", name:"PDF", ico:"📄",
+   featured:["pdf-to-jpg","pdf-to-png","jpg-to-pdf","pdf-merge","pdf-compress","pdf-rotate"],
+   tools:[
     {group:"PDFから変換", ico:"⬇", tools:["pdf-to-word","pdf-to-excel","pdf-to-ppt","pdf-to-jpg","pdf-to-png","pdf-to-html"]},
     {group:"PDFに変換", ico:"⬆", tools:["word-to-pdf","jpg-to-pdf","excel-to-pdf","ppt-to-pdf","png-to-pdf"]},
     "pdf-split","pdf-merge","pdf-compress",
@@ -1129,7 +1131,7 @@ function renderHome(){
       ${CATEGORIES.map(cat => `
         <h2>${cat.ico} ${cat.name}</h2>
         <div class="cardgrid">
-          ${flattenTools(cat).map(id => {
+          ${[...(cat.featured || []), ...flattenTools(cat).filter(id => !(cat.featured || []).includes(id))].map(id => {
             const t = TOOLS[id];
             return `<a class="card" href="#/${id}">
               ${t.type === "coming" ? '<span class="soon">準備中</span>' : ""}
