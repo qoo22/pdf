@@ -1046,6 +1046,11 @@ const TOOLS = {
 };
 
 const CATEGORIES = [
+  {id:"pdf", name:"PDF", ico:"📄", tools:[
+    {group:"PDFから変換", ico:"⬇", tools:["pdf-to-word","pdf-to-excel","pdf-to-ppt","pdf-to-jpg","pdf-to-png","pdf-to-html"]},
+    {group:"PDFに変換", ico:"⬆", tools:["word-to-pdf","jpg-to-pdf","excel-to-pdf","ppt-to-pdf","png-to-pdf"]},
+    "pdf-split","pdf-merge","pdf-compress",
+    "pdf-unprotect","pdf-protect","pdf-rotate","pdf-pagenum"]},
   {id:"video", name:"ビデオ", ico:"▶", tools:[
     "video-edit","screen-record","tts","video-merge","video-trim","video-add-audio",
     "video-add-image","video-add-text","video-remove-logo","video-crop","video-rotate",
@@ -1054,11 +1059,6 @@ const CATEGORIES = [
   {id:"audio", name:"オーディオ", ico:"♪", tools:[
     "audio-trim","audio-volume","audio-speed","audio-pitch","audio-eq","audio-reverse",
     "voice-recorder","audio-merge"]},
-  {id:"pdf", name:"PDF", ico:"📄", tools:[
-    {group:"PDFから変換", ico:"⬇", tools:["pdf-to-word","pdf-to-excel","pdf-to-ppt","pdf-to-jpg","pdf-to-png","pdf-to-html"]},
-    {group:"PDFに変換", ico:"⬆", tools:["word-to-pdf","jpg-to-pdf","excel-to-pdf","ppt-to-pdf","png-to-pdf"]},
-    "pdf-split","pdf-merge","pdf-compress",
-    "pdf-unprotect","pdf-protect","pdf-rotate","pdf-pagenum"]},
   {id:"conv", name:"コンバーター", ico:"⇄", tools:[
     "audio-convert","video-convert","image-convert","doc-convert","font-convert",
     "archive-zip","ebook-convert","archive-unzip"]},
