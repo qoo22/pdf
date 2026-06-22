@@ -331,6 +331,43 @@ async function imagesToPdf(files, ui){
   return new Blob([await doc.save()], {type:"application/pdf"});
 }
 
+/* ── PDF 圧縮レベル ──
+   scale = pdf.js のレンダリング倍率(おおよそ scale×72 DPI)、q = JPEG 品質 */
+const PDF_LEVELS = {
+  light:  {scale:2.0,  q:0.82, label:"軽め (高画質)"},
+  medium: {scale:1.45, q:0.66, label:"標準"},
+  strong: {scale:1.10, q:0.50, label:"強め (低画質・最小)"},
+};
+
+/* 各ページを JPEG 画像として再構築し、実際にファイルサイズを縮める。
+   文字主体の PDF など、画像化すると逆に大きくなる場合は元のバイト列を返す。 */
+async function compressPdfBytes(srcBytes, levelKey, ui){
+  const lvl = PDF_LEVELS[levelKey] || PDF_LEVELS.medium;
+  // pdf.js はバッファを転送(detach)するためコピーを渡す
+  const doc = await pdfjsLib.getDocument({data: srcBytes.slice(0)}).promise;
+  const out = await PDFLib.PDFDocument.create();
+  for(let p = 1; p <= doc.numPages; p++){
+    if(ui) ui.status(`圧縮中 (${p}/${doc.numPages})…`);
+    const page = await doc.getPage(p);
+    const vp = page.getViewport({scale: lvl.scale});
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(vp.width));
+    c.height = Math.max(1, Math.round(vp.height));
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+    await page.render({canvasContext: ctx, viewport: vp}).promise;
+    const jpg = await new Promise(r => c.toBlob(r, "image/jpeg", lvl.q));
+    const img = await out.embedJpg(await jpg.arrayBuffer());
+    const o = page.getViewport({scale: 1});
+    out.addPage([o.width, o.height]).drawImage(img, {x:0, y:0, width:o.width, height:o.height});
+  }
+  const rasterized = await out.save({useObjectStreams: true});
+  // 元より大きくなったら圧縮しない方がよい(文字主体 PDF など)
+  if(rasterized.length >= srcBytes.length)
+    return {bytes: srcBytes, shrank: false};
+  return {bytes: rasterized, shrank: true};
+}
+
 /* ── audio helpers ── */
 let _actx = null;
 const actx = () => _actx || (_actx = new (window.AudioContext || window.webkitAudioContext)());
@@ -424,7 +461,12 @@ const TOOLS = {
   accept:"application/pdf,.pdf", multiple:true, minFiles:2, sortable:true,
   hint:"2 つ以上の PDF を選択してください。サムネイルをドラッグ(または ↑↓)で結合順を変更でき、クリックで拡大プレビューできます。",
   options:[{key:"output", label:"出力方法", type:"select", def:"normal",
-    choices:[["normal","そのまま出力"],["compress","圧縮して出力 (サイズ最適化)"]]}],
+    choices:[
+      ["normal","そのまま出力 (劣化なし・文字を維持)"],
+      ["light","圧縮: 軽め (高画質)"],
+      ["medium","圧縮: 標準"],
+      ["strong","圧縮: 強め (低画質・最小)"],
+    ]}],
   async run(files, o, ui){
     const out = await PDFLib.PDFDocument.create();
     for(let i = 0; i < files.length; i++){
@@ -433,11 +475,13 @@ const TOOLS = {
       const pages = await out.copyPages(src, src.getPageIndices());
       pages.forEach(p => out.addPage(p));
     }
-    const compress = o.output === "compress";
-    const bytes = await out.save({useObjectStreams: compress});
-    if(compress){
+    let bytes = await out.save({useObjectStreams: true});
+    if(o.output !== "normal"){
       const orig = files.reduce((s, f) => s + f.size, 0);
-      ui.status(`元の合計サイズ: ${fmtSize(orig)} → 結合・圧縮後: ${fmtSize(bytes.length)}`);
+      const r = await compressPdfBytes(bytes, o.output, ui);
+      bytes = r.bytes;
+      ui.status(`元の合計サイズ: ${fmtSize(orig)} → 結合・圧縮後: ${fmtSize(bytes.length)}` +
+        (r.shrank ? "" : "\n(この PDF は文字主体のため、画像化すると逆に大きくなります。劣化なしのまま出力しました)"));
     }
     return [{name:"結合済み.pdf", blob:new Blob([bytes], {type:"application/pdf"})}];
   }},
@@ -475,15 +519,30 @@ const TOOLS = {
 
 "pdf-compress":{
   cat:"pdf", ico:"🗜", name:"PDF 圧縮", action:"圧縮",
-  desc:"PDF を再構築してファイルサイズを最適化します(画質は劣化しません)。",
+  desc:"PDF のファイルサイズを縮小します。圧縮レベルを選べます。スキャン文書や画像が多い PDF ほど効果的です。",
   accept:"application/pdf,.pdf",
+  options:[{key:"level", label:"圧縮レベル", type:"select", def:"medium",
+    choices:[
+      ["structure","構造のみ最適化 (文字を維持・劣化なし)"],
+      ["light","軽め (高画質)"],
+      ["medium","標準"],
+      ["strong","強め (低画質・最小)"],
+    ]}],
   async run(files, o, ui){
     const file = files[0];
-    ui.status("最適化しています…");
-    const src = await PDFLib.PDFDocument.load(await file.arrayBuffer(), {ignoreEncryption:true, updateMetadata:false});
-    const bytes = await src.save({useObjectStreams:true});
+    const orig = await PDFLib.PDFDocument.load(await file.arrayBuffer(), {ignoreEncryption:true, updateMetadata:false});
+    const structural = await orig.save({useObjectStreams:true});
+    let bytes, shrank;
+    if(o.level === "structure"){
+      bytes = structural;
+      shrank = bytes.length < file.size;
+    } else {
+      const r = await compressPdfBytes(structural, o.level, ui);
+      bytes = r.bytes; shrank = r.shrank;
+    }
     ui.status(`元のサイズ: ${fmtSize(file.size)} → 圧縮後: ${fmtSize(bytes.length)}` +
-      (bytes.length >= file.size ? "\n(この PDF はすでに十分最適化されています)" : ""));
+      (shrank ? `  (${Math.round((1 - bytes.length / file.size) * 100)}% 削減)`
+              : "\n(この PDF はこれ以上小さくできませんでした。別のレベルもお試しください)"));
     return [{name:`${baseName(file.name)}_圧縮済み.pdf`, blob:new Blob([bytes], {type:"application/pdf"})}];
   }},
 
