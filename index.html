@@ -64,11 +64,22 @@
   .dz-hint{color:#b9b9c2;font-size:14px}
 
   .filelist{list-style:none;width:100%;max-width:620px;margin-top:8px}
-  .filelist li{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:8px;font-size:14px;background:#fff}
+  .filelist li{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:8px;font-size:14px;background:#fff}
+  .filelist li.sortable{cursor:grab}
+  .filelist li.dragging{opacity:.4}
+  .filelist li.dragover{border-color:var(--accent);box-shadow:0 -2px 0 var(--accent)}
+  .filelist .grip{color:#c4c4d0;font-size:15px;flex:none;cursor:grab;user-select:none}
+  .filelist .thumb{width:46px;height:46px;flex:none;border-radius:6px;border:1px solid var(--border);background:#f4f4f8;object-fit:contain;cursor:zoom-in;display:flex;align-items:center;justify-content:center;font-size:20px;color:#b5b5c0}
   .filelist .fname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .filelist .fsize{color:var(--muted);font-size:12px}
-  .filelist button{background:#f1f1f6;border:none;border-radius:6px;width:28px;height:28px;cursor:pointer;color:#555;font-size:13px}
+  .filelist button{background:#f1f1f6;border:none;border-radius:6px;width:28px;height:28px;cursor:pointer;color:#555;font-size:13px;flex:none}
   .filelist button:hover{background:#e4e4ee}
+  #lightbox{position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:2000;display:none;align-items:center;justify-content:center;padding:28px;flex-direction:column;gap:14px}
+  #lightbox.show{display:flex}
+  #lightbox img{max-width:92vw;max-height:84vh;border-radius:8px;background:#fff}
+  #lightbox iframe{width:min(900px,92vw);height:84vh;border:none;border-radius:8px;background:#fff}
+  #lightbox .lb-cap{color:#fff;font-size:13px}
+  #lightbox .lb-close{position:absolute;top:18px;right:24px;color:#fff;font-size:30px;cursor:pointer;line-height:1}
 
   .opts{display:grid;grid-template-columns:auto auto;gap:12px 16px;align-items:center;margin-top:24px;font-size:14px}
   .opts label{color:#555;text-align:right}
@@ -411,7 +422,9 @@ const TOOLS = {
   cat:"pdf", ico:"🗂", name:"PDF 結合", action:"結合",
   desc:"複数の PDF ファイルを単一ファイルに高速かつ簡単に結合します。",
   accept:"application/pdf,.pdf", multiple:true, minFiles:2, sortable:true,
-  hint:"2 つ以上の PDF を選択してください。↑↓ ボタンで結合順を変更できます。",
+  hint:"2 つ以上の PDF を選択してください。サムネイルをドラッグ(または ↑↓)で結合順を変更でき、クリックで拡大プレビューできます。",
+  options:[{key:"output", label:"出力方法", type:"select", def:"normal",
+    choices:[["normal","そのまま出力"],["compress","圧縮して出力 (サイズ最適化)"]]}],
   async run(files, o, ui){
     const out = await PDFLib.PDFDocument.create();
     for(let i = 0; i < files.length; i++){
@@ -420,7 +433,13 @@ const TOOLS = {
       const pages = await out.copyPages(src, src.getPageIndices());
       pages.forEach(p => out.addPage(p));
     }
-    return [{name:"結合済み.pdf", blob:new Blob([await out.save()], {type:"application/pdf"})}];
+    const compress = o.output === "compress";
+    const bytes = await out.save({useObjectStreams: compress});
+    if(compress){
+      const orig = files.reduce((s, f) => s + f.size, 0);
+      ui.status(`元の合計サイズ: ${fmtSize(orig)} → 結合・圧縮後: ${fmtSize(bytes.length)}`);
+    }
+    return [{name:"結合済み.pdf", blob:new Blob([bytes], {type:"application/pdf"})}];
   }},
 
 "pdf-split":{
@@ -642,7 +661,7 @@ const TOOLS = {
   cat:"pdf", ico:"🖼", name:"JPG to PDF", action:"変換",
   desc:"JPG 画像を 1 つの PDF にまとめます。",
   accept:"image/jpeg,.jpg,.jpeg", multiple:true, sortable:true,
-  hint:"複数の画像を選択すると、選択順に 1 ページずつ PDF に追加されます。",
+  hint:"複数の画像を選択すると 1 ページずつ PDF に追加されます。サムネイルをドラッグ(または ↑↓)で順番を変更でき、クリックで拡大プレビューできます。",
   async run(files, o, ui){
     return [{name:"画像.pdf", blob:await imagesToPdf(files, ui)}];
   }},
@@ -651,7 +670,7 @@ const TOOLS = {
   cat:"pdf", ico:"🖼", name:"PNG to PDF", action:"変換",
   desc:"PNG 画像を 1 つの PDF にまとめます。",
   accept:"image/png,.png", multiple:true, sortable:true,
-  hint:"複数の画像を選択すると、選択順に 1 ページずつ PDF に追加されます。",
+  hint:"複数の画像を選択すると 1 ページずつ PDF に追加されます。サムネイルをドラッグ(または ↑↓)で順番を変更でき、クリックで拡大プレビューできます。",
   async run(files, o, ui){
     return [{name:"画像.pdf", blob:await imagesToPdf(files, ui)}];
   }},
@@ -1320,27 +1339,122 @@ function renderTool(t){
     return o;
   };
 
-  function addFiles(fl){
+  const thumbs = new Map();   // File -> {kind, src, full} | null
+  async function ensureThumb(f){
+    if(thumbs.has(f)) return;
+    try{
+      if(f.type.startsWith("image/")){
+        const url = URL.createObjectURL(f);
+        thumbs.set(f, {kind:"image", src:url, full:url});
+      } else if(f.type === "application/pdf" || /\.pdf$/i.test(f.name)){
+        const doc = await pdfjsLib.getDocument({data: await f.arrayBuffer()}).promise;
+        const page = await doc.getPage(1);
+        const base = page.getViewport({scale:1});
+        const vp = page.getViewport({scale: 120 / base.width});
+        const c = document.createElement("canvas");
+        c.width = vp.width; c.height = vp.height;
+        const ctx = c.getContext("2d");
+        ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+        await page.render({canvasContext: ctx, viewport: vp}).promise;
+        thumbs.set(f, {kind:"pdf", src: c.toDataURL(), full: URL.createObjectURL(f), pages: doc.numPages});
+      } else {
+        thumbs.set(f, null);
+      }
+    }catch(e){ thumbs.set(f, null); }
+  }
+  function dropThumb(f){
+    const t = thumbs.get(f);
+    if(t && t.full && t.kind === "image") URL.revokeObjectURL(t.full);
+    if(t && t.full && t.kind === "pdf") URL.revokeObjectURL(t.full);
+    thumbs.delete(f);
+  }
+
+  async function addFiles(fl){
     const arr = [...fl];
     if(!arr.length) return;
     files = t.multiple ? files.concat(arr) : [arr[arr.length - 1]];
+    renderList();
+    await Promise.all(files.map(ensureThumb));
+    renderList();
+  }
+
+  let dragIdx = -1;
+  function move(from, to){
+    if(to < 0 || to >= files.length || from === to) return;
+    const [it] = files.splice(from, 1);
+    files.splice(to, 0, it);
     renderList();
   }
   function renderList(){
     list.innerHTML = "";
     files.forEach((f, i) => {
       const li = document.createElement("li");
-      li.innerHTML = `<span class="fname">📄 ${esc(f.name)}</span><span class="fsize">${fmtSize(f.size)}</span>`;
+      if(t.sortable && files.length > 1) li.classList.add("sortable");
+
+      if(t.sortable && files.length > 1){
+        const grip = document.createElement("span");
+        grip.className = "grip"; grip.textContent = "⠿"; grip.title = "ドラッグで並べ替え";
+        li.append(grip);
+      }
+
+      const thumb = document.createElement("div");
+      thumb.className = "thumb";
+      const info = thumbs.get(f);
+      if(info && info.src){
+        const im = document.createElement("img");
+        im.src = info.src; im.style.cssText = "width:100%;height:100%;object-fit:contain;border-radius:5px";
+        im.title = "クリックで拡大プレビュー";
+        im.onclick = e => { e.stopPropagation(); openLightbox(f, info); };
+        thumb.style.cursor = "zoom-in";
+        thumb.onclick = () => openLightbox(f, info);
+        thumb.append(im);
+      } else {
+        thumb.textContent = "📄"; thumb.style.cursor = "default";
+      }
+      li.append(thumb);
+
+      const meta = document.createElement("div");
+      meta.style.cssText = "flex:1;min-width:0";
+      meta.innerHTML = `<div class="fname">${esc(f.name)}</div>` +
+        `<div class="fsize">${fmtSize(f.size)}${info && info.kind === "pdf" ? ` ・ ${info.pages} ページ` : ""}</div>`;
+      li.append(meta);
+
       if(t.sortable){
-        const up = document.createElement("button"); up.textContent = "↑";
-        up.onclick = () => { if(i > 0){ [files[i-1], files[i]] = [files[i], files[i-1]]; renderList(); } };
-        const dn = document.createElement("button"); dn.textContent = "↓";
-        dn.onclick = () => { if(i < files.length - 1){ [files[i+1], files[i]] = [files[i], files[i+1]]; renderList(); } };
+        const up = document.createElement("button"); up.textContent = "↑"; up.title = "上へ";
+        up.onclick = () => move(i, i - 1);
+        const dn = document.createElement("button"); dn.textContent = "↓"; dn.title = "下へ";
+        dn.onclick = () => move(i, i + 1);
         li.append(up, dn);
       }
-      const rm = document.createElement("button"); rm.textContent = "✕";
-      rm.onclick = () => { files.splice(i, 1); renderList(); };
+      const rm = document.createElement("button"); rm.textContent = "✕"; rm.title = "削除";
+      rm.onclick = () => { dropThumb(f); files.splice(i, 1); renderList(); };
       li.append(rm);
+
+      /* ── ドラッグで並べ替え ── */
+      if(t.sortable && files.length > 1){
+        li.draggable = true;
+        li.addEventListener("dragstart", e => {
+          dragIdx = i; li.classList.add("dragging");
+          e.dataTransfer.effectAllowed = "move";
+          try{ e.dataTransfer.setData("text/plain", "reorder"); }catch(_){}
+          e.stopPropagation();
+        });
+        li.addEventListener("dragend", () => {
+          dragIdx = -1; li.classList.remove("dragging");
+          [...list.children].forEach(c => c.classList.remove("dragover"));
+        });
+        li.addEventListener("dragover", e => {
+          if(dragIdx < 0) return;
+          e.preventDefault(); e.stopPropagation();
+          li.classList.add("dragover");
+        });
+        li.addEventListener("dragleave", () => li.classList.remove("dragover"));
+        li.addEventListener("drop", e => {
+          if(dragIdx < 0) return;
+          e.preventDefault(); e.stopPropagation();
+          move(dragIdx, i);
+        });
+      }
       list.appendChild(li);
     });
     runBtn.disabled = files.length < minFiles;
@@ -1381,6 +1495,26 @@ function renderTool(t){
   };
 }
 
+/* ── 拡大プレビュー (ライトボックス) ── */
+const lightbox = document.createElement("div");
+lightbox.id = "lightbox";
+document.body.appendChild(lightbox);
+function closeLightbox(){
+  lightbox.classList.remove("show");
+  lightbox.innerHTML = "";
+}
+lightbox.addEventListener("click", e => { if(e.target === lightbox) closeLightbox(); });
+document.addEventListener("keydown", e => { if(e.key === "Escape") closeLightbox(); });
+function openLightbox(file, info){
+  if(!info || !info.full) return;
+  const body = info.kind === "pdf"
+    ? `<iframe src="${info.full}"></iframe>`
+    : `<img src="${info.full}" alt="">`;
+  lightbox.innerHTML = `<span class="lb-close" title="閉じる (Esc)">×</span>${body}<div class="lb-cap">${esc(file.name)}</div>`;
+  lightbox.querySelector(".lb-close").onclick = closeLightbox;
+  lightbox.classList.add("show");
+}
+
 /* ── ページ全体ドラッグ&ドロップ ── */
 let currentDrop = null;
 const dropOverlay = document.createElement("div");
@@ -1412,6 +1546,7 @@ document.addEventListener("drop", e => {
 /* ═══════════════ router ═══════════════ */
 function route(){
   stopStream();
+  closeLightbox();
   currentDrop = null;
   window.scrollTo(0, 0);
   const hash = location.hash.replace(/^#\/?/, "");
