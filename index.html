@@ -69,7 +69,7 @@
   .filelist li.dragging{opacity:.4}
   .filelist li.dragover{border-color:var(--accent);box-shadow:0 -2px 0 var(--accent)}
   .filelist .grip{color:#c4c4d0;font-size:15px;flex:none;cursor:grab;user-select:none}
-  .filelist .thumb{width:46px;height:46px;flex:none;border-radius:6px;border:1px solid var(--border);background:#f4f4f8;object-fit:contain;cursor:zoom-in;display:flex;align-items:center;justify-content:center;font-size:20px;color:#b5b5c0}
+  .filelist .thumb{width:88px;height:108px;flex:none;border-radius:6px;border:1px solid var(--border);background:#f4f4f8;object-fit:contain;cursor:zoom-in;display:flex;align-items:center;justify-content:center;font-size:34px;color:#b5b5c0}
   .filelist .fname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .filelist .fsize{color:var(--muted);font-size:12px}
   .filelist button{background:#f1f1f6;border:none;border-radius:6px;width:28px;height:28px;cursor:pointer;color:#555;font-size:13px;flex:none}
@@ -1374,8 +1374,7 @@ function renderTool(t){
     if(!arr.length) return;
     files = t.multiple ? files.concat(arr) : [arr[arr.length - 1]];
     renderList();
-    await Promise.all(files.map(ensureThumb));
-    renderList();
+    for(const f of files){ await ensureThumb(f); renderList(); }   // 直列生成(PDFワーカー競合回避)+逐次表示
   }
 
   let dragIdx = -1;
