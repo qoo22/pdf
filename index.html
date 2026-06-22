@@ -332,23 +332,40 @@ async function imagesToPdf(files, ui){
 }
 
 /* ── PDF 圧縮レベル ──
-   scale = pdf.js のレンダリング倍率(おおよそ scale×72 DPI)、q = JPEG 品質 */
+   scale = pdf.js のレンダリング倍率(おおよそ scale×72 DPI)、q = JPEG 品質。
+   文字がつぶれないよう、画像化するページでも最低 144 DPI 相当を確保している。
+   forceRaster = 文字レイヤーのあるページも強制的に画像化(最大圧縮・文字はぼやける) */
 const PDF_LEVELS = {
-  light:  {scale:2.0,  q:0.82, label:"軽め (高画質)"},
-  medium: {scale:1.45, q:0.66, label:"標準"},
-  strong: {scale:1.10, q:0.50, label:"強め (低画質・最小)"},
+  light:  {scale:2.5, q:0.82, label:"軽め (高画質)"},
+  medium: {scale:2.2, q:0.68, label:"標準"},
+  strong: {scale:2.0, q:0.55, label:"強め (最小・文字ページは維持)"},
+  force:  {scale:1.6, q:0.55, label:"最大圧縮 (全ページ画像化)", forceRaster:true},
 };
 
-/* 各ページを JPEG 画像として再構築し、実際にファイルサイズを縮める。
-   文字主体の PDF など、画像化すると逆に大きくなる場合は元のバイト列を返す。 */
+/* PDF を圧縮する。
+   - 文字レイヤーを持つページは画像化せず元のまま保持(文字は鮮明・選択可能)。
+   - 画像のみのページ(スキャン文書・写真など)だけを JPEG として再構築して縮小する。
+   これにより「圧縮すると文字が読めなくなる」問題を回避する。
+   forceRaster レベルでは全ページを画像化する(最大圧縮)。 */
 async function compressPdfBytes(srcBytes, levelKey, ui){
   const lvl = PDF_LEVELS[levelKey] || PDF_LEVELS.medium;
-  // pdf.js はバッファを転送(detach)するためコピーを渡す
-  const doc = await pdfjsLib.getDocument({data: srcBytes.slice(0)}).promise;
+  const doc = await pdfjsLib.getDocument({data: srcBytes.slice(0)}).promise;   // pdf.js はバッファを転送するためコピー
+  const srcDoc = await PDFLib.PDFDocument.load(srcBytes, {ignoreEncryption:true});
   const out = await PDFLib.PDFDocument.create();
+  let keptText = 0, rasterized = 0;
   for(let p = 1; p <= doc.numPages; p++){
     if(ui) ui.status(`圧縮中 (${p}/${doc.numPages})…`);
     const page = await doc.getPage(p);
+    const tc = await page.getTextContent();
+    const textLen = tc.items.reduce((s, it) => s + ((it.str || "").trim().length), 0);
+    if(textLen >= 20 && !lvl.forceRaster){
+      // 文字ページ: ベクターのまま複製(劣化なし・文字くっきり)
+      const [cp] = await out.copyPages(srcDoc, [p - 1]);
+      out.addPage(cp);
+      keptText++;
+      continue;
+    }
+    // 画像ページ: 再描画して JPEG 化
     const vp = page.getViewport({scale: lvl.scale});
     const c = document.createElement("canvas");
     c.width = Math.max(1, Math.round(vp.width));
@@ -360,12 +377,12 @@ async function compressPdfBytes(srcBytes, levelKey, ui){
     const img = await out.embedJpg(await jpg.arrayBuffer());
     const o = page.getViewport({scale: 1});
     out.addPage([o.width, o.height]).drawImage(img, {x:0, y:0, width:o.width, height:o.height});
+    rasterized++;
   }
-  const rasterized = await out.save({useObjectStreams: true});
-  // 元より大きくなったら圧縮しない方がよい(文字主体 PDF など)
-  if(rasterized.length >= srcBytes.length)
-    return {bytes: srcBytes, shrank: false};
-  return {bytes: rasterized, shrank: true};
+  const result = await out.save({useObjectStreams: true});
+  if(result.length >= srcBytes.length)
+    return {bytes: srcBytes, shrank: false, keptText, rasterized};
+  return {bytes: result, shrank: true, keptText, rasterized};
 }
 
 /* ── audio helpers ── */
@@ -465,7 +482,8 @@ const TOOLS = {
       ["normal","そのまま出力 (劣化なし・文字を維持)"],
       ["light","圧縮: 軽め (高画質)"],
       ["medium","圧縮: 標準"],
-      ["strong","圧縮: 強め (低画質・最小)"],
+      ["strong","圧縮: 強め (文字ページは鮮明に維持)"],
+      ["force","圧縮: 最大 (全ページ画像化・文字はぼやけます)"],
     ]}],
   async run(files, o, ui){
     const out = await PDFLib.PDFDocument.create();
@@ -481,7 +499,7 @@ const TOOLS = {
       const r = await compressPdfBytes(bytes, o.output, ui);
       bytes = r.bytes;
       ui.status(`元の合計サイズ: ${fmtSize(orig)} → 結合・圧縮後: ${fmtSize(bytes.length)}` +
-        (r.shrank ? "" : "\n(この PDF は文字主体のため、画像化すると逆に大きくなります。劣化なしのまま出力しました)"));
+        (r.shrank ? "" : "\n(この PDF は文字主体のため、これ以上は縮みませんでした。劣化なしのまま出力しました)"));
     }
     return [{name:"結合済み.pdf", blob:new Blob([bytes], {type:"application/pdf"})}];
   }},
@@ -519,30 +537,33 @@ const TOOLS = {
 
 "pdf-compress":{
   cat:"pdf", ico:"🗜", name:"PDF 圧縮", action:"圧縮",
-  desc:"PDF のファイルサイズを縮小します。圧縮レベルを選べます。スキャン文書や画像が多い PDF ほど効果的です。",
+  desc:"PDF のファイルサイズを縮小します。文字のあるページはそのまま鮮明に保ち、画像ページのみ圧縮します。スキャン文書や写真の多い PDF ほど効果的です。",
   accept:"application/pdf,.pdf",
   options:[{key:"level", label:"圧縮レベル", type:"select", def:"medium",
     choices:[
       ["structure","構造のみ最適化 (文字を維持・劣化なし)"],
       ["light","軽め (高画質)"],
       ["medium","標準"],
-      ["strong","強め (低画質・最小)"],
+      ["strong","強め (文字ページは鮮明に維持)"],
+      ["force","最大 (全ページ画像化・文字はぼやけます)"],
     ]}],
   async run(files, o, ui){
     const file = files[0];
     const orig = await PDFLib.PDFDocument.load(await file.arrayBuffer(), {ignoreEncryption:true, updateMetadata:false});
     const structural = await orig.save({useObjectStreams:true});
-    let bytes, shrank;
+    let bytes, shrank, info = null;
     if(o.level === "structure"){
       bytes = structural;
       shrank = bytes.length < file.size;
     } else {
       const r = await compressPdfBytes(structural, o.level, ui);
-      bytes = r.bytes; shrank = r.shrank;
+      bytes = r.bytes; shrank = r.shrank; info = r;
     }
+    const detail = info && (info.keptText || info.rasterized)
+      ? `\n(文字ページ ${info.keptText} 件は鮮明なまま維持、画像ページ ${info.rasterized} 件を圧縮)` : "";
     ui.status(`元のサイズ: ${fmtSize(file.size)} → 圧縮後: ${fmtSize(bytes.length)}` +
-      (shrank ? `  (${Math.round((1 - bytes.length / file.size) * 100)}% 削減)`
-              : "\n(この PDF はこれ以上小さくできませんでした。別のレベルもお試しください)"));
+      (shrank ? `  (${Math.round((1 - bytes.length / file.size) * 100)}% 削減)${detail}`
+              : "\n(この PDF はこれ以上小さくできませんでした。文字主体の PDF はもともと十分小さいため圧縮されません)"));
     return [{name:`${baseName(file.name)}_圧縮済み.pdf`, blob:new Blob([bytes], {type:"application/pdf"})}];
   }},
 
